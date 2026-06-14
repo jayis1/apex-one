@@ -1,0 +1,21 @@
+CERN-OHL-S v2 (Hardware)
+GPL-2.0-or-later (Software)
+CC-BY-SA 4.0 (Documentation)
+
+Unless otherwise noted in specific files, all work in this repository is
+available under the following licenses:
+
+- Hardware designs (schematics, PCB layouts, BOM, Gerber files):
+  CERN Open Hardware Licence Version 2 - Strongly Reciprocal (CERN-OHL-S v2)
+  https://ohwr.org/cern_ohl_s_v2.txt
+
+- Firmware and software (C source, headers, Makefiles, device trees):
+  GNU General Public License Version 2 or later (GPL-2.0+)
+  https://www.gnu.org/licenses/gpl-2.0.html
+
+- Documentation (Markdown files, specifications, images):
+  Creative Commons Attribution-ShareAlike 4.0 International (CC-BY-SA 4.0)
+  https://creativecommons.org/licenses/by-sa/4.0/
+
+Each source file should contain an SPDX-License-Identifier tag indicating
+the applicable license.

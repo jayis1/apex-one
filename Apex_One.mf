@@ -1,0 +1,71 @@
+[Manifest.Metadata]
+DeviceName        = "Apex One"
+Codename          = "Project Cyber-Swiss"
+TargetClass       = "Advanced Mobile Pentesting Lab"
+Author            = "Hardware/Software Co-Design Engine"
+Date              = "2026-06-14"
+Revision          = "1.0"
+License           = "CERN-OHL-S v2 (hardware), GPL-2.0+ (software), CC-BY-SA 4.0 (docs)"
+
+[System.Architecture]
+ArchitectureType  = "Dual-Processor Asymmetric Co-Processing"
+BusTopology       = "AMBA AXI4 (High-Speed), SPI-Bridge (Inter-Processor)"
+
+[System.Processors]
+Primary_SoC       = "Rockchip RK3576 (Octa-core: 4x A72 + 4x A53, 6 TOPs NPU)"
+CoProcessor_MCU   = "Raspberry Pi RP2350B (Dual-core ARM Cortex-M33 / Hazard3 RISC-V)"
+
+[System.Memory]
+RAM               = "8GB LPDDR5 @ 3200MHz"
+Storage_Primary   = "32GB eMMC 5.1 (OS Root FS)"
+Storage_Expansion = "M.2 NVMe PCIe Gen3 x2 (Slot type 2230 for Rainbow Tables/PCAPs)"
+
+[System.Radio_SDR]
+Transceiver       = "Lime Microsystems LMS7002M (100kHz to 3.8GHz MIMO SDR)"
+SubGHz_Legacy     = "Texas Instruments CC1101 (Dedicated Low-Power OOK/FSK Transceiver)"
+NFC_RFID          = "STMicroelectronics ST25R3916 (High-performance NFC Universal Device)"
+Wireless_NIC      = "MediaTek MT7922 (Wi-Fi 6E / Bluetooth 5.4 with Packet Injection support)"
+
+[Schematic.Netlist.InterProcessor_Bridge]
+NET_SPI_CLK  = "RK3576.GPIO1_A2 -> RP2350B.PIN_18 (SPI0_SCK)"
+NET_SPI_MOSI = "RK3576.GPIO1_A0 -> RP2350B.PIN_19 (SPI0_TX)"
+NET_SPI_MISO = "RK3576.GPIO1_A1 -> RP2350B.PIN_16 (SPI0_RX)"
+NET_SPI_CS   = "RK3576.GPIO1_A3 -> RP2350B.PIN_17 (SPI0_CSn)"
+NET_INT_REQ  = "RP2350B.PIN_20   -> RK3576.GPIO1_B0 (Hardware Interrupt Request)"
+
+[Schematic.Netlist.RF_Frontend]
+NET_ANT_SEL0 = "RP2350B.PIN_2  -> PE42422.V1 (Antenna Switch Logic 1)"
+NET_ANT_SEL1 = "RP2350B.PIN_3  -> PE42422.V2 (Antenna Switch Logic 2)"
+NET_SDR_IQ_I = "LMS7002M.TX_I_P/N -> RK3576.MIPI_DSI_RX0 (High-Speed IQ Interface)"
+
+[PCB.Stackup]
+Layers            = 6
+Material          = "FR-4 High-TG (Isola 370HR or equivalent)"
+Thickness         = "1.6mm"
+Layer_1           = "Signal (Top, High-Speed RF traces, 50-ohm impedance matched)"
+Layer_2           = "Ground Plane (Solid, continuous under RF section)"
+Layer_3           = "Signal / Low-Speed Buses (I2C, UART, SPI)"
+Layer_4           = "Power Plane (Segmented: 1.1V SoC, 1.8V VIO, 3.3V Peripherals)"
+Layer_5           = "Ground Plane"
+Layer_6           = "Signal (Bottom, Power distribution, component escape vias)"
+
+[PCB.Constraints]
+RF_Shielding      = "Dedicated CNC Shielding Can covering LMS7002M & CC1101 layout zones"
+DDR_Routing       = "Fly-by topology with strict length matching within +/- 0.05mm"
+Thermal_Management = "Thermal via matrix array directly beneath RK3576 exposed pad"
+
+[Software.Boot]
+Stage1            = "RK3576 Internal ROM (24KB, loads SPL from eMMC boot0)"
+Stage2            = "U-Boot SPL (LPDDR5 init, loads full U-Boot)"
+Stage3            = "U-Boot Proper (eMMC/kernel loading, USB recovery)"
+Stage4            = "Linux Kernel 6.6+ (apex_bridge driver, SDR, NFC, Wi-Fi)"
+Stage5            = "Userspace (systemd, pentest tools, web UI)"
+
+[Software.Driver]
+Name              = "apex_bridge"
+Type              = "SPI Character Device Driver"
+Device            = "/dev/apex_bridge0"
+IOCTL_SDR_TUNE   = 0xA001
+IOCTL_SDR_STREAM  = 0xA002
+IOCTL_ANT_SELECT  = 0xA003
+IOCTL_GET_TELEMETRY = 0xA006
