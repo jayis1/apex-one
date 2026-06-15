@@ -38,7 +38,7 @@ Be respectful, constructive, and professional. We're all here to build something
 
 1. Keep `ghostblade-rk3576.dts` in sync with `GhostBlade.mf` manifest
 2. Optional hardware goes in `ghostblade-options.dts` overlay
-3. Run `.github/scripts/check-dts-consistency.py` before submitting
+3. Verify DTS nodes/properties match `GhostBlade.mf` before submitting
 
 ### Documentation
 
@@ -46,7 +46,7 @@ Be respectful, constructive, and professional. We're all here to build something
 2. Include units for all measurements (mm, MHz, mA, etc.)
 3. Keep `GhostBlade.mf` in sync with any spec changes
 4. Reference component designators (U1, R5, C12, etc.) consistently
-5. Run `.github/scripts/check-links.sh` to verify internal links
+5. Verify internal markdown links are valid
 6. Spellcheck with `codespell` using `.codespell.ignore`
 
 ## Pull Request Process
@@ -70,19 +70,6 @@ Fixes #123 (if applicable)
 ```
 
 Types: `hw` (hardware), `fw` (firmware), `sw` (software), `docs`, `fix`, `refactor`
-
-## CI Checks
-
-Pull requests are checked by the following workflows:
-
-| Workflow | What it checks |
-|----------|---------------|
-| `driver-build.yml` | Kernel module build (6.1/6.5/6.8), cppcheck, sparse |
-| `firmware-build.yml` | RP2350B firmware build (Pico SDK), clang-format |
-| `docs-lint.yml` | Markdownlint + codespell on all `.md` files |
-| `netlist-check.yml` | DTS GPIO/net consistency against manifest |
-
-Make sure CI passes before requesting review.
 
 ## License
 

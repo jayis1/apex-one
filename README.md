@@ -72,16 +72,6 @@ The RP2350B manages all RF frontends (antenna switching, SDR tuning, NFC polling
 
 ```
 ghostblade/
-├── .github/
-│   ├── workflows/
-│   │   ├── driver-build.yml                    # CI: kernel driver build & lint
-│   │   ├── firmware-build.yml                  # CI: RP2350B firmware build
-│   │   ├── docs-lint.yml                       # CI: markdownlint & spellcheck
-│   │   └── netlist-check.yml                  # CI: DTS/netlist consistency check
-│   └── scripts/
-│       ├── check-dts-consistency.py            # Validates DTS against GhostBlade.mf
-│       ├── check-pin-consistency.py            # Validates board_pins.h against manifest
-│       └── check-links.sh                      # Checks internal markdown link integrity
 ├── docs/
 │   ├── getting-started.md                      # Dev environment setup & build guide
 │   ├── flashing-guide.md                      # Firmware flashing & driver loading
