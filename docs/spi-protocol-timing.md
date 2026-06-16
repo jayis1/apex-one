@@ -54,20 +54,20 @@ The host sends a complete frame in one SPI transaction (CSn held low
 throughout the entire frame).
 
 ```
-     ┌─────────────────────────────────────────────────────────────────────┐
-CSn  ┘                                                                     └
-     │ Sync │ Cmd │ LenL │ LenH │ Rsv │ Rsv │ Rsv │ Rsv │ CRC_L │ CRC_H │
-     │ 0xAA │ 0x01│ 0x08 │ 0x00 │0x00 │0x00 │0x00 │0x00 │ 0xXX  │ 0xXX │
-     │      │     │ Header (8 bytes)        │ Hdr CRC (2 bytes)  │
-     ├──────┴─────┴─────────────────────────┴─────────────────────┤
-     │                   Payload (0-252 bytes)                      │
-     ├─────────────────────────────────────────────────────────────┤
-     │ PayCRC_L │ PayCRC_H │                                       │
-     └──────────┴───────────┘──────────────────────────────────────┘
+     ┌──────────────────────────────────────────────────────────────────────────────┐
+CSn  ┘                                                                              └
+     │ Sync │ Cmd │ LenL │ LenH │ Rsv0 │ Rsv1 │ Rsv2 │ Rsv3 │ HdrCRC[0]...HdrCRC[7] │
+     │ 0xAA │ 0x01│ 0x08 │ 0x00 │ 0x00 │ 0x00 │ 0x00 │ 0x00 │ 0xXX..0xXX (8 bytes)  │
+     │      │     │ Header bytes 0-7                │ CRC-64/ECMA-182 (8 bytes)      │
+     ├──────┴─────┴────────────────────────────────┴─────────────────────────────────┤
+     │                        Payload (0-4092 bytes)                                  │
+     ├────────────────────────────────────────────────────────────────────────────────┤
+     │ PayCRC[0] │ PayCRC[1] │ PayCRC[2] │ PayCRC[3] │                              │
+     └───────────┴───────────┴───────────┴───────────┴──────────────────────────────┘
 
-     │←──── 10 bytes ────→│←──── payload_len ────→│←── 2 bytes ──→│
-     │                     │                        │               │
-     │  SPI Header         │  Payload Data          │  Payload CRC  │
+     │←──── 16 bytes ───→│←──── payload_len ────→│←──── 4 bytes ────→│
+     │                    │                        │                    │
+     │  SPI Header         │  Payload Data          │  CRC-32 Trailer   │
 ```
 
 ### 2.2 MCU-to-Host Response Frame (Full-Duplex)
