@@ -154,20 +154,24 @@ sequenceDiagram
 ```
 ghostblade/
 ├── docs/
+│   ├── index.md                              # Documentation index (start here)
 │   ├── getting-started.md                      # Dev environment setup & build guide
+│   ├── build-instructions.md                  # Detailed build instructions
 │   ├── flashing-guide.md                      # Firmware flashing & driver loading
 │   ├── faq-troubleshooting.md                 # Frequently asked questions
 │   ├── power-tree.md                          # Power tree diagram & rails
 │   ├── spi-protocol-timing.md                # SPI bridge timing diagrams
+│   ├── sysfs-attributes.md                   # Driver sysfs telemetry reference
 │   ├── hardware-test-procedures.md             # 17-section test plan
+│   ├── hardware-contributor-guide.md          # Hardware design guidelines
 │   ├── phase1-conceptual/
-│   │   └── architecture-and-requirements.md
+│   │   └── architecture-and-requirements.md   # Power budgets, thermal, bus topology
 │   ├── phase2-schematics/
-│   │   └── component-selection-and-schematics.md
+│   │   └── component-selection-and-schematics.md  # BOM, netlists, decoupling
 │   ├── phase3-pcb/
-│   │   └── pcb-blueprints-and-layout.md
+│   │   └── pcb-blueprints-and-layout.md       # Stackup, impedance, DFM
 │   └── phase4-software/
-│       └── boot-process-and-mmio.md
+│       └── boot-process-and-mmio.md           # Boot chain, register maps
 ├── firmware/
 │   └── rp2350b/
 │       ├── CMakeLists.txt                      # CMake build (Pico SDK)
@@ -188,6 +192,8 @@ ghostblade/
 │   ├── bom/
 │   │   ├── ghostblade-bom.csv                  # Full BOM (80+ parts, MPN, price)
 │   │   └── ghostblade-bom-interactive.html     # Interactive HTML BOM
+│   ├── drc/
+│   │   └── ghostblade-drc-rules.kicad_drc     # KiCad custom DRC rules (IPC Class 3)
 │   └── kicad/
 │       ├── ghostblade.kicad_pro                # KiCad 8 project file
 │       ├── ghostblade.net                      # Schematic netlist (150+ nets)
@@ -197,7 +203,7 @@ ghostblade/
 │       │   └── ghostblade-footprints.pretty/
 │       │       └── ghostblade-footprints.kicad_mod
 │       └── 3dmodels/
-│           └── README.md
+│           └── README.md                       # STEP model references
 ├── software/
 │   ├── linux-drivers/
 │   │   ├── include/
@@ -218,14 +224,21 @@ ghostblade/
 │   │   └── README.md
 │   └── dts/
 │       ├── ghostblade-rk3576.dts              # Device tree source
-│       └── ghostblade-options.dts              # Optional hardware overlay
+│       ├── ghostblade-options.dts              # Optional hardware overlay
+│       └── ghostblade-sdr-overlay.dts          # SDR MIPI-CSI-2 + DMA overlay
 ├── tests/
-│   └── test_spi_protocol.c                    # SPI protocol unit tests
+│   ├── Makefile                               # Test build & run targets
+│   ├── test_spi_protocol.c                    # SPI protocol unit tests
+│   ├── test_apex_bridge.c                     # Kernel module test harness
+│   ├── test_spi_protocol                      # Compiled test binary
+│   └── hil_spi_bridge_test.sh                 # HIL SPI bridge test script
 ├── tools/
 │   └── generate_gerbers.py                    # Gerber/fab-note generation script
 ├── .clang-format                               # Linux kernel-style formatting config
-├── .markdownlint.json                          # Markdown linting rules
 ├── .codespell.ignore                           # Project-specific spellcheck ignore list
+├── .editorconfig                               # Cross-editor formatting rules
+├── .gitignore                                  # Git ignore patterns
+├── .markdownlint.json                          # Markdown linting rules
 ├── GhostBlade.mf                               # System Manifest
 ├── stats.json                                  # Dynamic badge data (auto-updated)
 ├── CONTRIBUTING.md
@@ -266,6 +279,23 @@ ghostblade/
 
 ---
 
+## Documentation Index
+
+> **[Full documentation index →](docs/index.md)**
+
+| Document | Description |
+|----------|-------------|
+| [Docs Index](docs/index.md) | Central documentation hub with all links |
+| [Getting Started](docs/getting-started.md) | Dev environment setup, toolchain, first build |
+| [Build Instructions](docs/build-instructions.md) | Detailed build steps for firmware, driver, libapex |
+| [Flashing Guide](docs/flashing-guide.md) | Firmware flashing, driver loading, recovery |
+| [FAQ & Troubleshooting](docs/faq-troubleshooting.md) | Common issues and solutions |
+| [Power Tree](docs/power-tree.md) | Power domain diagram, rail assignments, sequencing |
+| [SPI Protocol & Timing](docs/spi-protocol-timing.md) | Bridge protocol, frame format, timing diagrams |
+| [Sysfs Attributes](docs/sysfs-attributes.md) | Driver telemetry attributes, usage examples |
+| [Hardware Test Procedures](docs/hardware-test-procedures.md) | 17-section manufacturing test plan |
+| [Hardware Contributor Guide](docs/hardware-contributor-guide.md) | Schematic/PCB design guidelines, DRC rules |
+
 ## Engineering Phases
 
 | Phase | Document | Description |
@@ -285,6 +315,7 @@ ghostblade/
 | [ghostblade-symbols.kicad_sym](hardware/kicad/symbols/ghostblade-symbols.kicad_sym) | Symbol library (RK3576, RP2350B, LMS7002M, CC1101, ST25R3916, PE42422, MT7922, RK817, LPDDR5) |
 | [ghostblade-footprints.kicad_mod](hardware/kicad/footprints/ghostblade-footprints.pretty/ghostblade-footprints.kicad_mod) | Footprint library (FCBGA-732, QFN-60, QFN-64, all packages) |
 | [ghostblade.net](hardware/kicad/ghostblade.net) | Schematic netlist (150+ nets, all IC connections) |
+| [ghostblade-drc-rules.kicad_drc](hardware/drc/ghostblade-drc-rules.kicad_drc) | Custom DRC rules (IPC Class 3, RF/high-speed constraints) |
 | [ghostblade-bom.csv](hardware/bom/ghostblade-bom.csv) | Full bill of materials (80+ line items, MPN, price) |
 | [ghostblade-bom-interactive.html](hardware/bom/ghostblade-bom-interactive.html) | Interactive HTML BOM (search, filter, sort, cost calc) |
 | [3D models README](hardware/kicad/3dmodels/README.md) | STEP model references and parametric generation scripts |
