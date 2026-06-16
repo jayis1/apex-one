@@ -271,7 +271,7 @@ static int failed_tests;
 /* Test 1: CRC-64 known vectors */
 static void test_crc64_vectors(void)
 {
-    uint64_t crc;
+    uint64_t crc, crc2;
     /* CRC-64 of "123456789" — reflected ECMA-182 check value
      * (Our implementation uses LSB-first/reflected computation matching
      * the RP2350B firmware and kernel driver) */
@@ -281,10 +281,10 @@ static void test_crc64_vectors(void)
     TEST_ASSERT_EQ(0xB86883E6FA710A9FULL, crc,
                    "CRC-64/ECMA-182 (reflected) of '123456789'");
 
-    /* Determinism */
-    crc = test_crc64(vec, 9);
-    TEST_ASSERT_EQ(0x6C40DF5F0B497347ULL, crc,
-                   "CRC-64 is deterministic");
+    /* Determinism: same input must produce same output */
+    crc2 = test_crc64(vec, 9);
+    TEST_ASSERT_EQ(crc, crc2,
+                   "CRC-64 is deterministic (same result for same input)");
 }
 
 /* Test 2: CRC-32 known vectors */

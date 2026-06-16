@@ -1,0 +1,268 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Device Tree Overlay — GhostBlade SDR Runtime Configuration
+ * Project NullSpectre
+ *
+ * This overlay allows runtime reconfiguration of the LMS7002M SDR
+ * parameters through the device tree. Apply when SDR frequency plans,
+ * bandwidth, or LNA gain profiles need to be changed without reflashing
+ * the base DTB.
+ *
+ * Usage:
+ *   dtc -I dts -O dtb -@ -o ghostblade-sdr-overlay.dtbo ghostblade-sdr-overlay.dts
+ *   sudo mkdir -p /sys/kernel/config/device-tree/overlays/sdr
+ *   sudo cp ghostblade-sdr-overlay.dtbo /sys/kernel/config/device-tree/overlays/sdr/dtbo
+ *
+ * To remove:
+ *   sudo rmdir /sys/kernel/config/device-tree/overlays/sdr
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "ghostblade,nullspectre", "rockchip,rk3576";
+
+	/*
+	 * Fragment 0: SDR IQ stream parameters
+	 *
+	 * Configures the LMS7002M SDR via the RP2350B SPI1 bridge.
+	 * The apex_bridge driver reads these properties when processing
+	 * APEX_IOC_SDR_TUNE ioctl commands to validate parameters.
+	 *
+	 * These also serve as the default boot-time SDR configuration
+	 * that the RP2350B firmware applies during initialization.
+	 */
+	fragment@0 {
+		target-path = "/";
+
+		__overlay__ {
+			sdr_config: sdr-config {
+				compatible = "apex,sdr-config";
+
+				/*
+				 * Default RX frequency in Hz.
+				 * LMS7002M range: 100 kHz to 3.8 GHz.
+				 * Common pentest bands:
+				 *   433920000  = 433.92 MHz (ISM sub-GHz)
+				 *   868000000  = 868 MHz (EU SRD)
+				 *   915000000  = 915 MHz (US ISM)
+				 *   1575420000 = 1575.42 MHz (GPS L1)
+				 *   2400000000 = 2.4 GHz (Wi-Fi/Bluetooth)
+				 *   5180000000 = 5.18 GHz (Wi-Fi 5/6)
+				 */
+				apex,rx-freq-hz = <0x33F1B480>; /* 868 MHz default */
+
+				/*
+				 * Default RX bandwidth in Hz.
+				 * LMS7002M supports: 2 MHz to 61.44 MHz (5/10/20/40/61.44 typical).
+				 * The RP2350B firmware converts this to LMS7002M baseband filter
+				 * bandwidth registers.
+				 */
+				apex,rx-bw-hz = <0x001E8480>; /* 2 MHz default */
+
+				/*
+				 * Default LNA gain in dB × 10.
+				 * Range: 0 to 700 (0.0 dB to 70.0 dB).
+				 * The RP2350B applies this to LMS7002M LNA gain registers
+				 * (RFE and TIA blocks).
+				 */
+				apex,rx-gain-db-x10 = <0x0012C>; /* 30.0 dB default */
+
+				/*
+				 * SDR sample rate in samples per second.
+				 * The LMS7002M is configured for this decimation/interpolation
+				 * ratio via the RP2350B. Must be one of:
+				 *   256000, 512000, 1024000, 2048000, 4096000
+				 * Higher rates require DMA scatter-gather for sustained capture.
+				 */
+				apex,sample-rate = <0x0003E800>; /* 256 ksps default */
+
+				/*
+				 * Antenna selection for SDR RX path.
+				 * 0 = MIMO_TX (SMA_ANT0)
+				 * 1 = MIMO_RX (SMA_ANT1) — recommended for RX
+				 * 2 = SUBGHZ (CC1101/u.FL)
+				 * 3 = TERMINATED (50Ω load, for noise calibration)
+				 */
+				apex,antenna = <1>; /* MIMO_RX default */
+
+				/*
+				 * SDR channel number for LMS7002M.
+				 * LMS7002M has two RF channels (A and B).
+				 * For GhostBlade, channel A is used for MIMO and
+				 * channel B for sub-GHz via CC1101 RF path.
+				 */
+				apex,channel = <0>; /* Channel A (LMS7002M LNAW path) */
+
+				/*
+				 * Enable/disable LMS7002M TX path.
+				 * 0 = RX only (default for pentesting, receive-only)
+				 * 1 = TX+RX (requires regulatory authorization)
+				 */
+				apex,tx-enabled = <0>; /* RX only by default */
+
+				/*
+				 * TX frequency in Hz (only used if tx-enabled = <1>).
+				 * Must be within LMS7002M TX range: 100 kHz to 3.8 GHz.
+				 */
+				apex,tx-freq-hz = <0x33F1B480>; /* 868 MHz default */
+
+				/*
+				 * TX output power in dBm × 10.
+				 * Range: -300 to +150 (-30.0 dBm to +15.0 dBm).
+				 * LMS7002M typical max: +14 dBm.
+				 */
+				apex,tx-power-dbm-x10 = <0x00000000>; /* 0.0 dBm default */
+
+				/*
+				 * IQ data format for DMA streaming.
+				 * 0 = I16Q16 (2 × int16, 4 bytes per sample, default)
+				 * 1 = I12Q12 (2 × int12 packed, 3 bytes per sample)
+				 * 2 = I8Q8 (2 × int8, 2 bytes per sample, compact)
+				 *
+				 * I16Q16 provides the best dynamic range and is recommended
+				 * for most use cases. I12Q12 is a good balance of range
+				 * and throughput. I8Q8 maximizes throughput at reduced range.
+				 */
+				apex,iq-format = <0>; /* I16Q16 default */
+			};
+		};
+	};
+
+	/*
+	 * Fragment 1: SDR DMA scatter-gather buffer configuration
+	 *
+	 * These parameters control the kernel driver's SG DMA engine for
+	 * high-throughput IQ streaming. The driver reads these at probe
+	 * time as defaults; they can be overridden via APEX_IOC_SG_START.
+	 */
+	fragment@1 {
+		target-path = "/";
+
+		__overlay__ {
+			sg_config: sg-config {
+				compatible = "apex,sg-config";
+
+				/* Number of DMA scatter-gather buffers (2-64) */
+				apex,buf-count = <8>;
+
+				/* Size of each DMA buffer in bytes (must be multiple of 4) */
+				/* 8 buffers × 32768 bytes = 256 KiB total for IQ streaming */
+				apex,buf-size = <0x8000>; /* 32 KiB per buffer */
+
+				/* DMA transfer timeout in ms (0 = infinite wait) */
+				apex,timeout-ms = <500>;
+
+				/* Continuous streaming mode (1 = ring buffer, 0 = single batch) */
+				apex,continuous = <1>;
+
+				/*
+				 * SPI clock frequency for SG DMA transfers in Hz.
+				 * The RK3576 SPI0 controller divides from the peripheral clock
+				 * (300 MHz). Valid values:
+				 *   21428571 = 300/(2*(6+1)) ≈ 21.4 MHz (default, reliable)
+				 *   11538461 = 300/(2*(12+1)) ≈ 11.5 MHz (lower power)
+				 *   50000000 = not achievable from 300 MHz peripheral clock
+				 *              (listed in DTS as spi-max-frequency upper bound)
+				 */
+				apex,spi-speed-hz = <0x0147840B>; /* 21.4 MHz default */
+			};
+		};
+	};
+
+	/*
+	 * Fragment 2: LNA power control GPIO
+	 *
+	 * Provides a GPIO-controlled regulator for the external LNA (Low Noise
+	 * Amplifier) power. The LMS7002M on-chip LNA is always powered via
+	 * vdd_rf, but an external LNA (e.g., Mini-Circuits PGA-103+)
+	 * connected between the SMA antenna port and the LMS7002M RX input
+	 * can be enabled/disabled at runtime for improved sensitivity.
+	 */
+	fragment@2 {
+		target-path = "/";
+
+		__overlay__ {
+			lna_vcc: lna-vcc-regulator {
+				compatible = "regulator-fixed";
+				regulator-name = "lna_vcc";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				gpio = <&gpio1 17 GPIO_ACTIVE_HIGH>; /* GPIO1_C1: LNA_EN */
+				enable-active-high;
+				startup-delay-us = <1000>;
+				off-on-delay-us = <5000>;
+				vin-supply = <&vdd_3v3>;
+			};
+		};
+	};
+
+	/*
+	 * Fragment 3: CC1101 sub-GHz radio runtime configuration
+	 *
+	 * Default configuration parameters for the CC1101 433/868/915 MHz
+	 * sub-GHz radio. The RP2350B firmware reads these at boot and applies
+	 * them to the CC1101 configuration registers via SPI1.
+	 */
+	fragment@3 {
+		target-path = "/";
+
+		__overlay__ {
+			cc1101_config: cc1101-config {
+				compatible = "apex,cc1101-config";
+
+				/*
+				 * CC1101 frequency band selection.
+				 * 0 = 433 MHz (EU/ASIA ISM)
+				 * 1 = 868 MHz (EU SRD)
+				 * 2 = 915 MHz (US/AU ISM)
+				 */
+				apex,freq-band = <1>; /* 868 MHz default */
+
+				/*
+				 * Channel number (0-255).
+				 * Actual frequency = base_freq + channel × channel_spacing.
+				 * Configured via MDMCFG1.CHANSPC_E and MDMCFG0.CHANSPC_M.
+				 */
+				apex,channel = <0>;
+
+				/*
+				 * Modulation format.
+				 * 0 = 2-FSK (default, best sensitivity)
+				 * 1 = GFSK
+				 * 2 = ASK/OOK
+				 * 3 = 4-FSK
+				 * 4 = MSK
+				 */
+				apex,modulation = <1>; /* GFSK default */
+
+				/*
+				 * Data rate in Baud × 1000.
+				 * Common values:
+				 *   1200  = 1.2 kBaud
+				 *   4800  = 4.8 kBaud
+				 *   38400 = 38.4 kBaud
+				 *   250000 = 250 kBaud
+				 */
+				apex,data-rate = <38400>; /* 38.4 kBaud default */
+
+				/*
+				 * TX output power level.
+				 * 0 = -30 dBm (minimum)
+				 * 1 = -20 dBm
+				 * 2 = -15 dBm
+				 * 3 = -10 dBm
+				 * 4 = 0 dBm
+				 * 5 = +5 dBm
+				 * 6 = +7 dBm
+				 * 7 = +10 dBm (maximum)
+				 */
+				apex,tx-power = <4>; /* 0 dBm default */
+			};
+		};
+	};
+};
