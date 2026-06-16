@@ -90,3 +90,17 @@
 (rule "GhostBlade: Annular ring minimum"
     (constraint annular_width (min 0.1mm))
 )
+
+(rule "GhostBlade: Thermal relief clearance"
+    (condition "A.NetClass == 'Power'")
+    (constraint clearance (min 0.25mm))
+)
+
+(rule "GhostBlade: Copper zone minimum width"
+    (constraint copper_width (min 0.2mm))
+)
+
+(rule "GhostBlade: RF zone keep-out digital"
+    (condition "A.NetClass == 'RF' && B.NetClass != 'RF' && B.NetClass != 'Power'")
+    (constraint clearance (min 0.5mm))
+)

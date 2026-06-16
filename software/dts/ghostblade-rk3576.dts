@@ -333,6 +333,8 @@
 	mmc-hs200-1_8v;
 	non-removable;
 	cap-mmc-highspeed;
+	pinctrl-0 = <&emmc_pins>;
+	pinctrl-names = "default";
 
 	partitions {
 		compatible = "fixed-partitions";
@@ -375,6 +377,9 @@
 	max-link-speed = <3>; /* Gen3 */
 	num-lanes = <2>;
 
+	pinctrl-0 = <&pcie_pins>;
+	pinctrl-names = "default";
+
 	vpcie3v3-supply = <&vdd_3v3>;
 	vpcie1v8-supply = <&vdd_logic>;
 	vpcie0v9-supply = <&vdd_core>;
@@ -396,6 +401,22 @@
 };
 
 /* ================================================================
+ * SDMMC0 — MicroSD Card Slot (boot rescue / storage expansion)
+ * ================================================================ */
+
+&sdmmc0 {
+	status = "okay";
+	bus-width = <4>;
+	cap-sd-highspeed;
+	max-frequency = <200000000>; /* SDR104 */
+	cd-gpios = <&gpio0 31 GPIO_ACTIVE_LOW>; /* GPIO0_D7: card detect */
+	vmmc-supply = <&vdd_3v3>;
+	vqmmc-supply = <&vdd_logic>;
+	pinctrl-0 = <&sdmmc0_pins &sdmmc0_det_pin>;
+	pinctrl-names = "default";
+};
+
+/* ================================================================
  * UART0 — Debug Console
  * ================================================================ */
 
@@ -404,6 +425,31 @@
 	current-speed = <115200>;
 	pinctrl-0 = <&uart0_pins>;
 	pinctrl-names = "default";
+};
+
+/* ================================================================
+ * MIPI DSI — 6.4" IPS Display (1080x2400)
+ * ================================================================ */
+
+&dsi {
+	status = "okay";
+	pinctrl-0 = <&dsi_pins>;
+	pinctrl-names = "default";
+
+	panel@0 {
+		compatible = "ghostblade,ips-6p4-1080x2400";
+		reg = <0>;
+		backlight = <&display_backlight>;
+		rotation = <0>;
+	};
+};
+
+display_backlight: backlight {
+	compatible = "pwm-backlight";
+	pwms = <&pwm0 0 100000 0>; /* 10 kHz PWM */
+	brightness-levels = <0 4 8 16 32 64 128 255>;
+	default-brightness-level = <6>; /* ~50% */
+	power-supply = <&vdd_3v3>;
 };
 
 /* ================================================================
@@ -499,5 +545,58 @@
 		       /* STATUS, ACTIVITY, SDR_RX */
 		function = "gpio";
 		drive-strength = <4>;
+	};
+
+	emmc_pins: emmc-pins {
+		pins = "EMMC_CLK", "EMMC_CMD",
+		       "EMMC_DQ0", "EMMC_DQ1",
+		       "EMMC_DQ2", "EMMC_DQ3",
+		       "EMMC_DQ4", "EMMC_DQ5",
+		       "EMMC_DQ6", "EMMC_DQ7",
+		       "EMMC_RST_N", "EMMC_DS";
+		function = "emmc";
+		bias-pull-up;
+		drive-strength = <8>;
+	};
+
+	pcie_pins: pcie-pins {
+		pins = "PCIE_RST_N"; /* GPIO0_B0 */
+		function = "gpio";
+		bias-pull-up;
+		drive-strength = <4>;
+	};
+
+	usb_pins: usb-pins {
+		pins = "USB_CC1", "USB_CC2";
+		function = "usb";
+		bias-pull-up;
+		drive-strength = <4>;
+	};
+
+	dsi_pins: dsi-pins {
+		pins = "DSI_D0_P", "DSI_D0_N",
+		       "DSI_D1_P", "DSI_D1_N",
+		       "DSI_D2_P", "DSI_D2_N",
+		       "DSI_D3_P", "DSI_D3_N",
+		       "DSI_CLK_P", "DSI_CLK_N";
+		function = "mipi_dsi";
+		bias-disable;
+		drive-strength = <4>;
+	};
+
+	sdmmc0_pins: sdmmc0-pins {
+		pins = "SDMMC0_CLK", "SDMMC0_CMD",
+		       "SDMMC0_D0", "SDMMC0_D1",
+		       "SDMMC0_D2", "SDMMC0_D3";
+		function = "sdmmc0";
+		bias-pull-up;
+		drive-strength = <4>;
+	};
+
+	sdmmc0_det_pin: sdmmc0-det-pin {
+		pins = "GPIO0_D7"; /* SD card detect (active-low) */
+		function = "gpio";
+		bias-pull-up;
+		input-enable;
 	};
 };

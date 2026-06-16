@@ -253,5 +253,5 @@ sudo cp apex_bridge_overlay.dtbo /sys/kernel/config/device-tree/overlays/apex_br
 
 ### More Help
 
-See [docs/faq-troubleshooting.md](faq-troubleshooting.md) for additional
+See [FAQ & Troubleshooting](faq-troubleshooting.md) for additional
 common issues and solutions.

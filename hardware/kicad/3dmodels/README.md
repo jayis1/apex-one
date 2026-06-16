@@ -54,7 +54,7 @@ This produces `ghostblade-board.step` suitable for mechanical CAD integration
 
 ## Enclosure Integration Notes
 
-- Board dimensions: 130mm x 68mm x 1.6mm (PCB only)
+- Board dimensions: 152mm x 72mm x 1.6mm (PCB only)
 - Tallest component: M.2 socket (~4.5mm above PCB)
 - RF shielding can height: ~3mm above PCB
 - Recommended enclosure internal clearance: 8mm minimum above PCB

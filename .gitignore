@@ -61,3 +61,4 @@ dist/
 
 # Test binaries
 tests/test_spi_protocol
+tests/test_apex_bridge
