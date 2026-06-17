@@ -403,7 +403,7 @@ Signed-off-by: Jane Doe <jane@example.com>
 7. **Open a Pull Request** against `main`
 8. Address review feedback
 
-See `CONTRIBUTING.md` for full details.
+See `docs/contributing.md` for full details.
 
 ---
 

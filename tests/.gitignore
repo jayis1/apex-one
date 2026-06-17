@@ -1,0 +1,17 @@
+# Compiled test binaries
+test_spi_protocol
+test_battery_monitor
+test_cc1101_config
+test_watchdog
+test_power_states
+test_libapex
+
+# Build artifacts
+*.o
+*.ko
+*.mod.c
+*.mod
+.*.cmd
+.tmp_versions/
+Module.symvers
+modules.order
