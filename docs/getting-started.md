@@ -10,14 +10,15 @@ structure, and start contributing.
 2. [Repository Structure](#repository-structure)
 3. [Hardware Architecture](#hardware-architecture)
 4. [Development Environment Setup](#development-environment-setup)
-5. [Building the Firmware](#building-the-firmware)
-6. [Building the Kernel Driver](#building-the-kernel-driver)
-7. [Building libapex and Python Bindings](#building-libapex-and-python-bindings)
-8. [Running Tests](#running-tests)
-9. [Code Style and Conventions](#code-style-and-conventions)
-10. [Contributing Workflow](#contributing-workflow)
-11. [Hardware-in-the-Loop Testing](#hardware-in-the-loop-testing)
-12. [Documentation Guidelines](#documentation-guidelines)
+5. [Quick Build from Project Root](#quick-build-from-project-root)
+6. [Building the Firmware](#building-the-firmware)
+7. [Building the Kernel Driver](#building-the-kernel-driver)
+8. [Building libapex and Python Bindings](#building-libapex-and-python-bindings)
+9. [Running Tests](#running-tests)
+10. [Code Style and Conventions](#code-style-and-conventions)
+11. [Contributing Workflow](#contributing-workflow)
+12. [Hardware-in-the-Loop Testing](#hardware-in-the-loop-testing)
+13. [Documentation Guidelines](#documentation-guidelines)
 
 ---
 
@@ -58,19 +59,28 @@ ghostblade/
 │   │   ├── include/              # libapex.h
 │   │   ├── Makefile              # C library build
 │   │   └── setup.py              # Python extension build
-│   └── dts/                      # Device tree overlays
+│   └── dts/                      # Device tree sources
+│       ├── ghostblade-rk3576.dts
+│       ├── ghostblade-options.dts
+│       ├── ghostblade-sdr-overlay.dts
+│       └── Makefile              # DTS compile & validate targets
 ├── hardware/
 │   ├── kicad/                    # KiCad schematic & PCB files
-│   └── datasheets/               # Component datasheets (not in repo)
-├── docs/
-│   ├── phase1-conceptual/        # Architecture & requirements
-│   └── spi-protocol-timing.md   # SPI timing diagrams
-├── tests/
-│   └── test_spi_protocol.c       # SPI protocol unit tests
-├── tests/                        # Unit and integration tests
-├── README.md                     # Project overview
+│   ├── bom/                      # Bill of materials (CSV + interactive HTML)
+│   └── drc/                      # Custom DRC rules
+├── docs/                         # All documentation
+│   ├── getting-started.md
+│   ├── build-instructions.md
+│   ├── flashing-guide.md
+│   ├── faq-troubleshooting.md
+│   └── ...                       # See docs/index.md
+├── tests/                        # Unit and HIL tests
+├── tools/                        # Build utilities (Gerber generation)
+├── Makefile                      # Top-level build convenience targets
+├── CHANGELOG.md                  # Project changelog
 ├── CONTRIBUTING.md               # Contribution guidelines
-└── LICENSE                       # GPL-2.0-or-later
+├── LICENSE                       # Triple-license (CERN-OHL-S, GPL-2.0+, CC-BY-SA)
+└── README.md                     # Project overview
 ```
 
 ---
@@ -126,6 +136,9 @@ sudo apt-get install -y build-essential cmake ninja-build python3 python3-pip \
 # Kernel module build
 sudo apt-get install -y linux-headers-$(uname -r) kmod
 
+# Device tree compiler
+sudo apt-get install -y device-tree-compiler
+
 # Static analysis tools
 sudo apt-get install -y cppcheck sparse clang-format
 ```
@@ -140,6 +153,25 @@ cd -
 
 export PICO_SDK_PATH=/opt/pico-sdk
 ```
+
+---
+
+## Quick Build from Project Root
+
+The top-level `Makefile` provides convenience targets for building sub-projects:
+
+```bash
+make help        # Show all available targets
+make firmware    # Build RP2350B firmware (requires PICO_SDK_PATH)
+make driver      # Build Linux kernel driver
+make libapex     # Build userspace C library + Python bindings
+make tests       # Build and run unit tests
+make dtb         # Compile device tree sources
+make validate    # Validate DTS syntax
+make clean       # Remove all build artifacts
+```
+
+See the [Build Instructions](build-instructions.md) document for detailed per-component build steps.
 
 ---
 

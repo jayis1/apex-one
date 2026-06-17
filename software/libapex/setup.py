@@ -1,4 +1,7 @@
-# setup.py - Build script for pyapex Python extension
+# setup.py — Build script for pyapex Python extension
+#
+# Copyright (C) 2026 GhostBlade Project
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 from setuptools import setup, Extension
 import os

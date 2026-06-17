@@ -48,7 +48,8 @@ Be respectful, constructive, and professional. We're all here to build something
 3. SDR-specific configuration goes in `ghostblade-sdr-overlay.dts`
 4. Verify DTS nodes/properties match `GhostBlade.mf` before submitting
 5. Ensure pinctrl entries have correct drive-strength and bias settings matching the schematic
-6. Run `dtc -I dts -O dtb` to validate syntax before submitting
+6. Run `cd software/dts && make validate` to validate syntax before submitting
+7. Use `cd software/dts && make all` to compile DTB/DTBO outputs
 
 ### Documentation
 
@@ -72,9 +73,10 @@ Before submitting a PR, ensure:
    - test_cc1101_config (37 tests): CC1101 register configuration validation
    - test_watchdog (72 tests): Watchdog timer constants, brownout magic values, reset reasons
    - test_power_states (57 tests): Power state machine transitions, voltage thresholds
-4. **DTS validates**: `dtc -I dts -O dtb software/dts/ghostblade-rk3576.dts`
+4. **DTS validates**: `cd software/dts && make validate`
 5. **Markdown lints clean**: `markdownlint docs/ README.md CONTRIBUTING.md`
 6. **No spelling errors**: `codespell --config .codespell.ignore`
+7. **Top-level build works**: `make tests` (from project root)
 
 ## Pull Request Process
 

@@ -4,11 +4,12 @@ This page provides a central index of all GhostBlade (Project NullSpectre) docum
 
 ## Quick Start
 
-| Document | Description |
+|| Document | Description |
 |----------|-------------|
 | [Getting Started](getting-started.md) | Dev environment setup, toolchain installation, first build |
 | [Build Instructions](build-instructions.md) | Detailed build steps for firmware, driver, libapex, Python bindings |
 | [Flashing Guide](flashing-guide.md) | Firmware flashing via OpenOCD/picotool/USB, driver loading, recovery |
+| [Changelog](../CHANGELOG.md) | Project changelog and version history |
 
 ## Reference
 
