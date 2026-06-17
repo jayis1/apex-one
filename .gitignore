@@ -12,6 +12,11 @@
 # Firmware build
 firmware/rp2350b/build/
 firmware/rp2350b/.vscode/
+*.uf2
+*.hex
+*.bin
+*.elf
+*.map
 
 # Kernel module build
 software/linux-drivers/*.ko
@@ -61,4 +66,8 @@ dist/
 
 # Test binaries
 tests/test_spi_protocol
+tests/test_battery_monitor
+tests/test_cc1101_config
+tests/test_watchdog
+tests/test_power_states
 tests/test_apex_bridge

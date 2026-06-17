@@ -82,6 +82,57 @@ make test_cc1101_config
 
 **Result:** 37/37 assertions pass.
 
+### `test_watchdog.c` — Watchdog Timer Unit Tests
+
+Unit tests for the RP2350B hardware watchdog timer configuration, timeout constants, brownout detection magic values, and reset reason decoding.
+
+**Test coverage:**
+- Watchdog timeout constants (5 s timeout, tick calculation)
+- Bark interrupt priority verification
+- Brownout magic value (scratch register pattern)
+- Reset reason decoding (power-on, watchdog, brownout, pin reset)
+- Watchdog kick interval validation
+- Scratch register read/write patterns
+- Double-bark detection (second bark should trigger immediate reset)
+
+**Build:**
+```bash
+make test_watchdog
+```
+
+**Run:**
+```bash
+./test_watchdog
+```
+
+**Result:** 72/72 assertions pass.
+
+### `test_power_states.c` — Power State Machine Unit Tests
+
+Unit tests for the GhostBlade power state machine, including state transitions, voltage thresholds, and power domain enable/disable sequencing.
+
+**Test coverage:**
+- State transitions (OFF → BOOT → IDLE → ACTIVE → DEEP_SLEEP)
+- Voltage threshold checks (VDD_CORE 0.9V, VDD_LOGIC 1.8V, VDD_DDR 1.1V, VBAT 3.0–4.2V)
+- Power domain sequencing (PMIC rail order enforcement)
+- Deep sleep entry and exit conditions
+- Overcurrent and overtemperature protection triggers
+- Brownout recovery path (VDD droop → sleep → recovery)
+- State machine invalid transition rejection
+- All valid transitions covered (12 state pairs)
+
+**Build:**
+```bash
+make test_power_states
+```
+
+**Run:**
+```bash
+./test_power_states
+```
+
+**Result:** 57/57 assertions pass.
+
 ### `test_apex_bridge.c` — Kernel Module Test Harness
 
 In-kernel test harness for the `apex_bridge` SPI bridge driver. Runs as a loadable kernel module on the RK3576 target platform.

@@ -5,6 +5,9 @@ GhostBlade Gerber Generation Script
 Generates manufacturing-ready Gerber files, drill files, and pick-and-place
 from KiCad PCB for submission to PCB fabricators.
 
+Copyright (C) 2026 GhostBlade Project
+SPDX-License-Identifier: GPL-2.0-or-later
+
 Usage:
     python3 generate_gerbers.py [--kicad_pcb path/to/ghostblade.kicad_pcb] [--output gerbers/]
 
@@ -46,8 +49,6 @@ Manufacturing Notes:
     - Board edge: 2mm keepout from antenna connectors
     - Gold plating on antenna connector pads (hard gold, 30 microinches)
     - Via-in-pad allowed for BGA components (copper-filled, capped)
-
-SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import subprocess
@@ -74,7 +75,6 @@ GERBER_LAYERS = {
     "F.SilkS":    "ghostblade-F_SilkS.gbr",
     "B.SilkS":    "ghostblade-B_SilkS.gbr",
     "Edge.Cuts":  "ghostblade-Edge_Cuts.gbr",
-    "In1.Cu":     "ghostblade-Vias.gbr",  # Via layer
 }
 
 

@@ -185,32 +185,81 @@ dev.close()
 ```bash
 cd tests
 
-# Without cmocka (built-in self-test framework):
-gcc -Wall -Wextra -std=c11 -DNO_CMOCKA -o test_spi_protocol test_spi_protocol.c
-./test_spi_protocol
+# Build and run all userspace tests:
+make run
 
-# With cmocka:
-gcc -Wall -Wextra -std=c11 -o test_spi_protocol test_spi_protocol.c -lcmocka
-./test_spi_protocol
+# Or build individually:
+make test_spi_protocol
+make test_battery_monitor
+make test_cc1101_config
+make test_watchdog
+make test_power_states
+```
+
+You can also build from the project root:
+
+```bash
+make tests
 ```
 
 ---
 
-## 7. Generating Hardware Files
+## 7. Compiling Device Tree Sources
 
-### 7.1 Gerber Files
+### 7.1 Validate DTS Syntax
+
+```bash
+cd software/dts
+make validate
+```
+
+### 7.2 Compile DTB/DTBO
+
+```bash
+cd software/dts
+
+# Simple compilation (no kernel include paths):
+make all
+
+# With kernel DTS include paths for full #include resolution:
+make DTS_INCLUDE_PATHS="-I/path/to/linux/include/dt-bindings -I/path/to/linux/arch/arm64/boot/dts/rockchip"
+```
+
+Output: `ghostblade-rk3576.dtb`, `ghostblade-options.dtbo`, `ghostblade-sdr-overlay.dtbo`
+
+### 7.3 Applying Overlays on Target
+
+```bash
+# Load base DTB
+mkdir -p /boot/overlays
+cp ghostblade-rk3576.dtb /boot/dtbs/rockchip/rk3576-ghostblade.dtb
+
+# Copy overlays
+cp ghostblade-options.dtbo /boot/overlays/
+cp ghostblade-sdr-overlay.dtbo /boot/overlays/
+
+# Add to /boot/extlinux.conf or /boot/armbianEnv.txt:
+# overlay_prefix=ghostblade-
+# overlays=options sdr-overlay
+```
+
+---
+
+## 8. Generating Hardware Files
+
+### 8.1 Gerber Files
 
 ```bash
 python3 tools/generate_gerbers.py --fab-note --zip
 ```
 
-### 7.2 BOM
+### 8.2 BOM
 
 The interactive BOM is at `hardware/bom/ghostblade-bom-interactive.html`. The CSV BOM is at `hardware/bom/ghostblade-bom.csv`.
 
 ---
 
-## 8. Reproducible Builds
+## 9. Reproducible Builds
 
 For reproducible builds, set the following environment variables:
 
@@ -224,7 +273,7 @@ The firmware CMakeLists and driver Makefile respect `SOURCE_DATE_EPOCH` for embe
 
 ---
 
-## 9. Troubleshooting Build Issues
+## 10. Troubleshooting Build Issues
 
 | Problem | Solution |
 |---------|----------|
@@ -234,5 +283,8 @@ The firmware CMakeLists and driver Makefile respect `SOURCE_DATE_EPOCH` for embe
 | `Kernel headers not found` | Set `KDIR` to your kernel source tree root |
 | `cmake version too old` | Install CMake ≥ 3.15 (`pip install cmake --upgrade`) |
 | `undefined reference to spi_protocol_*` | Ensure all `.c` files are listed in `CMakeLists.txt` |
+| `dtc: not found` | Install `device-tree-compiler` package |
+| `DTS include not found` | Set `DTS_INCLUDE_PATHS` to your kernel include directories |
+| `dtc: Warning` | Most warnings are benign; use `-Wno-*` flags in `software/dts/Makefile` |
 
 For more troubleshooting, see [FAQ & Troubleshooting](faq-troubleshooting.md).

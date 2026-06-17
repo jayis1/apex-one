@@ -225,12 +225,16 @@ ghostblade/
 │   └── dts/
 │       ├── ghostblade-rk3576.dts              # Device tree source
 │       ├── ghostblade-options.dts              # Optional hardware overlay
-│       └── ghostblade-sdr-overlay.dts          # SDR MIPI-CSI-2 + DMA overlay
+│       ├── ghostblade-sdr-overlay.dts          # SDR MIPI-CSI-2 + DMA overlay
+│       └── Makefile                            # DTS compile & validate targets
 ├── tests/
 │   ├── Makefile                               # Test build & run targets
 │   ├── test_spi_protocol.c                    # SPI protocol unit tests
+│   ├── test_battery_monitor.c                 # Battery monitor unit tests
+│   ├── test_cc1101_config.c                  # CC1101 register config tests
+│   ├── test_watchdog.c                        # Watchdog timer unit tests
+│   ├── test_power_states.c                   # Power state machine tests
 │   ├── test_apex_bridge.c                     # Kernel module test harness
-│   ├── test_spi_protocol                      # Compiled test binary
 │   └── hil_spi_bridge_test.sh                 # HIL SPI bridge test script
 ├── tools/
 │   └── generate_gerbers.py                    # Gerber/fab-note generation script
@@ -239,7 +243,9 @@ ghostblade/
 ├── .editorconfig                               # Cross-editor formatting rules
 ├── .gitignore                                  # Git ignore patterns
 ├── .markdownlint.json                          # Markdown linting rules
+├── CHANGELOG.md                                # Project changelog
 ├── GhostBlade.mf                               # System Manifest
+├── Makefile                                    # Top-level build convenience targets
 ├── stats.json                                  # Dynamic badge data (auto-updated)
 ├── CONTRIBUTING.md
 ├── LICENSE
@@ -377,6 +383,12 @@ python3 tools/generate_gerbers.py --fab-note --zip
 - **Hardware designs** (schematics, PCB layouts, BOM): [CERN-OHL-S v2](LICENSE)
 - **Firmware and software**: [GPL-2.0-or-later](LICENSE)
 - **Documentation**: [CC-BY-SA 4.0](LICENSE)
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a record of all notable changes.
 
 ---
 
