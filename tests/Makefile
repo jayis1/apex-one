@@ -10,6 +10,9 @@
 #   test_cc1101_config    — CC1101 register configuration unit tests
 #   test_watchdog         — Watchdog timer unit tests
 #   test_power_states     — Power state machine unit tests
+#   test_libapex          — libapex userspace library unit tests
+#   test_sdr_dma          — SDR DMA ring buffer logic unit tests
+#   test_spi0_isr         — SPI0 ISR frame assembly state machine unit tests
 #   test_apex_bridge      — Kernel module test harness (for target)
 #   all                   — Build all userspace tests
 #   clean                 — Remove build artifacts
@@ -19,6 +22,8 @@
 #   make test_spi_protocol     # Build SPI protocol tests only
 #   make test_battery_monitor  # Build battery monitor tests only
 #   make test_cc1101_config    # Build CC1101 config tests only
+#   make test_sdr_dma          # Build SDR DMA ring buffer tests only
+#   make test_spi0_isr         # Build SPI0 ISR frame assembly tests only
 #   make run                   # Build and run all userspace tests
 #   make check                 # Same as 'make run'
 #
@@ -32,7 +37,7 @@ CFLAGS  = -Wall -Wextra -std=c11 -DNO_CMOCKA -g -O2
 LDFLAGS =
 
 # Userspace test targets
-USERSPACE_TARGETS = test_spi_protocol test_battery_monitor test_cc1101_config test_watchdog test_power_states test_libapex
+USERSPACE_TARGETS = test_spi_protocol test_battery_monitor test_cc1101_config test_watchdog test_power_states test_libapex test_sdr_dma test_spi0_isr
 
 # Kernel module sources (build separately on target)
 KMOD_SOURCES = test_apex_bridge.c
@@ -52,6 +57,8 @@ help:
 	@echo "  test_watchdog         - Build watchdog timer unit tests"
 	@echo "  test_power_states     - Build power state machine unit tests"
 	@echo "  test_libapex          - Build libapex userspace library unit tests"
+	@echo "  test_sdr_dma          - Build SDR DMA ring buffer unit tests"
+	@echo "  test_spi0_isr         - Build SPI0 ISR frame assembly unit tests"
 	@echo "  run / check           - Build and run all userspace tests"
 	@echo "  clean                 - Remove build artifacts"
 	@echo ""
@@ -76,6 +83,12 @@ test_power_states: test_power_states.c
 test_libapex: test_libapex.c
 	$(CC) $(CFLAGS) -I$(CURDIR)/../software/libapex -o $@ $< $(LDFLAGS) -lm
 
+test_sdr_dma: test_sdr_dma.c
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+
+test_spi0_isr: test_spi0_isr.c
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+
 run: $(USERSPACE_TARGETS)
 	@echo "=== Running SPI Protocol Unit Tests ==="
 	@./test_spi_protocol
@@ -94,6 +107,12 @@ run: $(USERSPACE_TARGETS)
 	@echo ""
 	@echo "=== Running libapex Unit Tests ==="
 	@./test_libapex
+	@echo ""
+	@echo "=== Running SDR DMA Ring Buffer Unit Tests ==="
+	@./test_sdr_dma
+	@echo ""
+	@echo "=== Running SPI0 ISR Frame Assembly Unit Tests ==="
+	@./test_spi0_isr
 	@echo ""
 
 check: run

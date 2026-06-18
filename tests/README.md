@@ -133,6 +133,73 @@ make test_power_states
 
 **Result:** 57/57 assertions pass.
 
+### `test_sdr_dma.c` — SDR DMA Ring Buffer Unit Tests
+
+Unit tests for the SDR DMA ring buffer manager's block management, overrun/underrun detection, and statistics tracking. Uses a simulated ring buffer that replicates the real `sdr_dma.c` logic without requiring DMA hardware.
+
+**Test coverage:**
+- Ring buffer initialization (pointers, counters, statistics)
+- Single block produce/consume cycle
+- Fill all 8 blocks and drain them
+- Overrun detection (write pointer wraps past read pointer)
+- Underrun detection (read from empty buffer)
+- Interleaved produce and consume operations
+- Ring buffer wrap-around (2 full cycles)
+- Data integrity after wrap-around
+- Sustained streaming pattern (100 blocks, consumer keeps up)
+- Ring buffer size calculations (8 blocks × 512 bytes = 4096 total)
+- DMA state transitions (start/stop)
+- Block data pattern verification
+- Rapid produce/consume stress test (1000 iterations)
+- Multiple underrun detection
+- Partial consume pattern (6 produce, 3 consume, 3 more produce, drain)
+
+**Build:**
+```bash
+make test_sdr_dma
+```
+
+**Run:**
+```bash
+./test_sdr_dma
+```
+
+### `test_spi0_isr.c` — SPI0 ISR Frame Assembly Unit Tests
+
+Unit tests for the SPI0 slave interrupt handler's frame assembly state machine. Simulates byte-by-byte arrival of SPI frames and verifies synchronization, CRC validation, error recovery, and statistics tracking.
+
+**Test coverage:**
+- Initial state verification (IDLE state, zero counters)
+- Sync byte transition (IDLE → HEADER)
+- Non-sync byte rejection in IDLE state
+- Complete NOP frame assembly (no payload)
+- Complete payload frame assembly (16-byte CC1101 config)
+- Corrupted header CRC-64 detection → error state
+- Corrupted payload CRC-32 detection → error state
+- Error recovery and resync after corrupted frame
+- Back-to-back frame processing
+- Oversized payload length rejection (> 4092 bytes)
+- Garbage bytes before sync byte (discarded correctly)
+- Maximum payload frame (4092 bytes)
+- Multiple command types assembled correctly
+- Byte-by-byte feeding (simulating slow SPI)
+- Frame-not-consumed overflow detection
+- Telemetry request frame (host → MCU)
+- SDR stream start frame (1-byte payload)
+- SPI0 statistics tracking
+- Resync after partial corrupted frame
+- IQ chunk frame (512-byte SDR data)
+
+**Build:**
+```bash
+make test_spi0_isr
+```
+
+**Run:**
+```bash
+./test_spi0_isr
+```
+
 ### `test_apex_bridge.c` — Kernel Module Test Harness
 
 In-kernel test harness for the `apex_bridge` SPI bridge driver. Runs as a loadable kernel module on the RK3576 target platform.
