@@ -23,163 +23,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
-/* ========================================================================
- * ST25R3916 Register Map (Space A: Direct Command / Space B: Reg)
- * ======================================================================== */
-
-/* IRQ status register addresses (Space A, read to clear) */
-#define ST25R3916_REG_IRQ_STATUS1           0x04   /* IRQ Status 1 (read to clear) */
-#define ST25R3916_REG_IRQ_STATUS2           0x05   /* IRQ Status 2 (read to clear) */
-#define ST25R3916_REG_IRQ_STATUS3           0x06   /* IRQ Status 3 (read to clear) */
-#define ST25R3916_REG_IRQ_STATUS4           0x07   /* IRQ Status 4 (read to clear) */
-#define ST25R3916_REG_IRQ_STATUS5           0x08   /* IRQ Status 5 (read to clear) */
-
-/* TX FIFO write address (Space A, write-only) */
-#define ST25R3916_REG_TX_FIFO               0x1F   /* TX FIFO write (write-only) */
-
-/* Space A registers (access via SPI with address byte encoding) */
-#define ST25R3916_REG_IO_CONF1              0x00   /* I/O Configuration 1 */
-#define ST25R3916_REG_IO_CONF2              0x01   /* I/O Configuration 2 */
-#define ST25R3916_REG_OP_CTRL               0x02   /* Operation Control */
-#define ST25R3916_REG_MODE_DEF              0x03   /* Mode Definition */
-#define ST25R3916_REG_BIT_RATE              0x04   /* Bit Rate Definition */
-#define ST25R3916_REG_ISO14443A_MODE        0x05   /* ISO 14443A Mode */
-#define ST25R3916_REG_ISO14443B_MODE        0x06   /* ISO 14443B Mode */
-#define ST25R3916_REG_FELICA_MODE           0x07   /* FeliCa Mode */
-#define ST25R3916_REG_ISO15693_MODE         0x08   /* ISO 15693 Mode */
-#define ST25R3916_REG_ANT_CAL_TARGET        0x09   /* Antenna Calibration Target */
-#define ST25R3916_REG_ANT_CAL_TIME          0x0A   /* Antenna Calibration Time */
-#define ST25R3916_REG_ANT_MIN               0x0B   /* Antenna Minimum */
-#define ST25R3916_REG_ANT_MAX               0x0C   /* Antenna Maximum */
-#define ST25R3916_REG_ANT_TUNE              0x0D   /* Antenna Tuning */
-#define ST25R3916_REG_ANT_TUNE_MEAS         0x0E   /* Antenna Tuning Measure */
-#define ST25R3916_REG_AUX_MOD               0x0F   /* Auxiliary Modulation */
-#define ST25R3916_REG_RX_CONF1              0x10   /* Receiver Configuration 1 */
-#define ST25R3916_REG_RX_CONF2              0x11   /* Receiver Configuration 2 */
-#define ST25R3916_REG_RX_CONF3              0x12   /* Receiver Configuration 3 */
-#define ST25R3916_REG_RX_CONF4              0x13   /* Receiver Configuration 4 */
-#define ST25R3916_REG_TX_DRIVER             0x14   /* TX Driver */
-#define ST25R3916_REG_TX_CURRENT            0x15   /* TX Current */
-#define ST25R3916_REG_TX_CURRENT_SSC        0x16   /* TX Current SSC */
-#define ST25R3916_REG_TX_CURRENT_SSC_HL     0x17   /* TX Current SSC HL */
-#define ST25R3916_REG_TX_CURRENT_SSC_LH     0x18   /* TX Current SSC LH */
-#define ST25R3916_REG_CORR_CONF1            0x19   /* Correlator Configuration 1 */
-#define ST25R3916_REG_CORR_CONF2            0x1A   /* Correlator Configuration 2 */
-#define ST25R3916_REG_TIMER_EMV             0x1B   /* Timer EMV */
-#define ST25R3916_REG_TIMER1                0x1C   /* Timer 1 */
-#define ST25R3916_REG_TIMER2                0x1D   /* Timer 2 */
-#define ST25R3916_REG_TIMER3                0x1E   /* Timer 3 */
-#define ST25R3916_REG_IRQ_MASK1             0x1F   /* Interrupt Mask 1 */
-#define ST25R3916_REG_IRQ_MASK2             0x20   /* Interrupt Mask 2 */
-#define ST25R3916_REG_IRQ_MASK3             0x21   /* Interrupt Mask 3 */
-#define ST25R3916_REG_IRQ_MASK4             0x22   /* Interrupt Mask 4 */
-#define ST25R3916_REG_IRQ_MASK5             0x23   /* Interrupt Mask 5 */
-#define ST25R3916_REG_NUM_TX_BYTES1         0x24   /* Number of TX Bytes 1 */
-#define ST25R3916_REG_NUM_TX_BYTES2         0x25   /* Number of TX Bytes 2 */
-#define ST25R3916_REG_NUM_TX_BYTES3         0x26   /* Number of TX Bytes 3 */
-#define ST25R3916_REG_TX_FIFO_STATUS        0x27   /* TX FIFO Status */
-#define ST25R3916_REG_NUM_RX_BYTES1         0x28   /* Number of RX Bytes 1 */
-#define ST25R3916_REG_NUM_RX_BYTES2         0x29   /* Number of RX Bytes 2 */
-#define ST25R3916_REG_NUM_RX_BYTES3         0x2A   /* Number of RX Bytes 3 */
-#define ST25R3916_REG_RX_FIFO_STATUS        0x2B   /* RX FIFO Status */
-#define ST25R3916_REG_COLL_INT_CLEAR        0x2C   /* Collision and INT Clear */
-#define ST25R3916_REG_WUP_TIMER             0x2D   /* Wake-up Timer */
-#define ST25R3916_REG_WUP_TIMER_GRAN        0x2E   /* Wake-up Timer Granularity */
-#define ST25R3916_REG_SLP_TIMER             0x2F   /* Sleep Timer */
-#define ST25R3916_REG_SLP_TIMER_GRAN        0x30   /* Sleep Timer Granularity */
-#define ST25R3916_REG_MVT                   0x31   /* Minimum Validation Time */
-#define ST25R3916_REG_AGC_CONFIG            0x32   /* AGC Configuration */
-#define ST25R3916_REG_AM_CONFIG             0x33   /* AM Configuration */
-#define ST25R3916_REG_AM_GRANGE1            0x34   /* AM Gain Range 1 */
-#define ST25R3916_REG_AM_GRANGE2            0x35   /* AM Gain Range 2 */
-#define ST25R3916_REG_AM_GRANGE3            0x36   /* AM Gain Range 3 */
-#define ST25R3916_REG_WUP_COLL              0x37   /* Wake-up Collision */
-#define ST25R3916_REG_RSSI                  0x38   /* RSSI Level */
-#define ST25R3916_REG_OBSV_CONF1            0x39   /* Observer Configuration 1 */
-#define ST25R3916_REG_OBSV_CONF2             0x3A   /* Observer Configuration 2 */
-#define ST25R3916_REG_OBSV_CONF3             0x3B   /* Observer Configuration 3 */
-#define ST25R3916_REG_OSC_CONF               0x3C   /* Oscillator Configuration */
-#define ST25R3916_REG_VREG_CONF              0x3D   /* Voltage Regulator Configuration */
-#define ST25R3916_REG_TEST_DISC_CONF1        0x3E   /* Test Discovery Configuration 1 */
-#define ST25R3916_REG_TEST_DISC_CONF2        0x3F   /* Test Discovery Configuration 2 */
-#define ST25R3916_REG_SPACE_B_CTRL           0x40   /* Space B Control */
-
-/* Space B registers (access via Space B gateway) */
-#define ST25R3916_REG_EMD_SUP_CONF           0x41   /* EMD Suppression Config */
-#define ST25R3916_REG_SUBCORR_THRESH         0x42   /* Sub-Correlator Threshold */
-#define ST25R3916_REG_RATS_RESP1             0x43   /* RATS Response 1 */
-#define ST25R3916_REG_RATS_RESP2             0x44   /* RATS Response 2 */
-#define ST25R3916_REG_PV_ADAPT_LOAD          0x45   /* PV Adapt Load */
-#define ST25R3916_REG_DPO_ISO15693           0x46   /* DPO ISO 15693 */
-#define ST25R3916_REG_DPO_ISO14443A          0x47   /* DPO ISO 14443A */
-#define ST25R3916_REG_DPO_3                  0x48   /* DPO 3 */
-#define ST25R3916_REG_DPO_I_CODE             0x49   /* DPO I-CODE */
-
-/* Direct Commands (write-only, accessed as register addresses) */
-#define ST25R3916_CMD_SET_DEFAULT             0xC1   /* Set Default */
-#define ST25R3916_CMD_INITIALIZE              0xC2   /* Initialize */
-#define ST25R3916_CMD_INITIALIZE_DPO          0xC3   /* Initialize DPO */
-#define ST25R3916_CMD_MEASURE_VDD             0xC5   /* Measure VDD */
-#define ST25R3916_CMD_CALIBRATE_ANTENNA       0xC8   /* Calibrate Antenna */
-#define ST25R3916_CMD_MEASURE_AMPLITUDE       0xC9   /* Measure Amplitude */
-#define ST25R3916_CMD_MEASURE_PHASE           0xCA   /* Measure Phase */
-#define ST25R3916_CMD_CLEAR_IRQS              0xC4   /* Clear Interrupts */
-#define ST25R3916_CMD_TX_ON                   0xC6   /* TX On */
-#define ST25R3916_CMD_TX_OFF                  0xC7   /* TX Off */
-#define ST25R3916_CMD_GOTO_SENSE              0xD0   /* Go to Sense */
-#define ST25R3916_CMD_GOTO_SLEEP              0xD1   /* Go to Sleep */
-#define ST25R3916_CMD_START_WUP_TIMER         0xD2   /* Start Wake-up Timer */
-#define ST25R3916_CMD_START_GP_TIMER          0xD3   /* Start General Purpose Timer */
-#define ST25R3916_CMD_SPACE_B_ACCESS          0xFF   /* Access Space B */
-
-/* ========================================================================
- * ST25R3916 IRQ Status Register Bits
- * ======================================================================== */
-
-/* IRQ1 bits */
-#define ST25R3916_IRQ1_OSC                    (1 << 0)   /* Oscillator on */
-#define ST25R3916_IRQ1_FELICA                 (1 << 1)   /* FeliCa interrupt */
-#define ST25R3916_IRQ1_NFCA                   (1 << 2)   /* NFC-A interrupt */
-#define ST25R3916_IRQ1_NFCB                   (1 << 3)   /* NFC-B interrupt */
-#define ST25R3916_IRQ1_NFCF                   (1 << 4)   /* NFC-F interrupt */
-#define ST25R3916_IRQ1_NFCV                   (1 << 5)   /* NFC-V interrupt */
-#define ST25R3916_IRQ1_TXE                    (1 << 6)   /* TX ended */
-#define ST25R3916_IRQ1_RXE                    (1 << 7)   /* RX ended */
-
-/* IRQ2 bits */
-#define ST25R3916_IRQ2_CAC                    (1 << 0)   /* Collision during anticollision */
-#define ST25R3916_IRQ2_WU_F                  (1 << 1)   /* Wake-up fall */
-#define ST25R3916_IRQ2_WU_A                  (1 << 2)   /* Wake-up active */
-#define ST25R3916_IRQ2_WU_S                  (1 << 3)   /* Wake-up sense */
-#define ST25R3916_IRQ2_RXS                   (1 << 4)   /* RX start */
-#define ST25R3916_IRQ2_RX_F                  (1 << 5)   /* RX FIFO full */
-#define ST25R3916_IRQ2_TX_F                  (1 << 6)   /* TX FIFO full */
-#define ST25R3916_IRQ2_DCT                   (1 << 7)   /* Discovery cycle done */
-
-/* IRQ3 bits */
-#define ST25R3916_IRQ3_GPP_TIMER              (1 << 0)   /* General Purpose Timer */
-#define ST25R3916_IRQ3_LMS                   (1 << 1)   /* Length mis-match */
-#define ST25R3916_IRQ3_CRC                   (1 << 2)   /* CRC error */
-#define ST25R3916_IRQ3_EON                    (1 << 3)   /* External field on */
-#define ST25R3916_IRQ3_EOF                   (1 << 4)   /* External field off */
-#define ST25R3916_IRQ3_EMD                   (1 << 5)   /* EMD detected */
-#define ST25R3916_IRQ3_AWU                   (1 << 6)   /* Auto wake-up */
-#define ST25R3916_IRQ3_RFD                   (1 << 7)   /* RF field detected */
-
-/* ========================================================================
- * Forward Declarations
- * ======================================================================== */
-
-extern void apex_nfc_cs_assert(void);
-extern void apex_nfc_cs_release(void);
-extern uint8_t apex_nfc_spi_xfer(uint8_t tx_byte);
-extern void apex_nfc_write_register(uint8_t addr, uint8_t val);
-extern uint8_t apex_nfc_read_register(uint8_t addr);
-
-/* GPIO for IRQ */
-#define RP2350B_GPIO_BASE     0x400D0000UL
-#define PIN_NFC_IRQ           44
+#include "st25r3916_init.h"
 
 /* ========================================================================
  * ST25R3916 SPI Access Functions
@@ -576,4 +420,52 @@ void st25r3916_sleep(void) {
     st25r3916_field_off();
     st25r3916_write_reg(ST25R3916_REG_OP_CTRL, 0x00);  /* Disable TX/RX */
     st25r3916_send_command(ST25R3916_CMD_GOTO_SLEEP);
+}
+
+/**
+ * st25r3916_stop_polling — Stop NFC tag detection polling
+ *
+ * Disables the carrier field and clears the NFC-A detection state.
+ * Called before entering low-power mode or switching NFC protocol.
+ * Equivalent to field_off() but also clears NFC-A interrupt flags
+ * to prevent spurious detections after re-enabling polling.
+ */
+void st25r3916_stop_polling(void) {
+    /* Turn off the RF field */
+    st25r3916_field_off();
+
+    /* Disable TX and RX in operation control */
+    st25r3916_write_reg(ST25R3916_REG_OP_CTRL, 0x00);
+
+    /* Clear all interrupt flags to reset detection state */
+    st25r3916_send_command(ST25R3916_CMD_CLEAR_IRQS);
+}
+
+/**
+ * st25r3916_get_field_strength_mv — Read NFC field strength in mV
+ *
+ * Measures the amplitude of the 13.56 MHz carrier field using the
+ * ST25R3916's internal measurement circuitry. Useful for antenna
+ * tuning verification and debug.
+ *
+ * Returns: field strength in mV (0–5000), or 0 on error
+ */
+uint16_t st25r3916_get_field_strength_mv(void) {
+    uint8_t result;
+
+    /* Send MEASURE_AMPLITUDE direct command */
+    st25r3916_send_command(ST25R3916_CMD_MEASURE_AMPLITUDE);
+
+    /* Wait for measurement to complete (typically 50-100 μs) */
+    for (volatile int i = 0; i < 1500; i++)
+        __asm__("nop");
+
+    /* Read the RSSI register which contains the amplitude measurement result.
+     * The RSSI register gives an 8-bit value (0-255) representing the
+     * measured field strength. Convert to mV assuming full-scale = 5.0V. */
+    result = st25r3916_read_reg(ST25R3916_REG_RSSI);
+
+    /* Convert: amplitude_mV = result * 5000 / 255
+     * Using 32-bit arithmetic to avoid overflow */
+    return (uint16_t)((uint32_t)result * 5000 / 255);
 }

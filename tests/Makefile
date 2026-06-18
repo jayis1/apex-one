@@ -32,7 +32,7 @@ CFLAGS  = -Wall -Wextra -std=c11 -DNO_CMOCKA -g -O2
 LDFLAGS =
 
 # Userspace test targets
-USERSPACE_TARGETS = test_spi_protocol test_battery_monitor test_cc1101_config test_watchdog test_power_states
+USERSPACE_TARGETS = test_spi_protocol test_battery_monitor test_cc1101_config test_watchdog test_power_states test_libapex
 
 # Kernel module sources (build separately on target)
 KMOD_SOURCES = test_apex_bridge.c
@@ -51,6 +51,7 @@ help:
 	@echo "  test_cc1101_config    - Build CC1101 configuration unit tests"
 	@echo "  test_watchdog         - Build watchdog timer unit tests"
 	@echo "  test_power_states     - Build power state machine unit tests"
+	@echo "  test_libapex          - Build libapex userspace library unit tests"
 	@echo "  run / check           - Build and run all userspace tests"
 	@echo "  clean                 - Remove build artifacts"
 	@echo ""
@@ -72,6 +73,9 @@ test_watchdog: test_watchdog.c
 test_power_states: test_power_states.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
+test_libapex: test_libapex.c
+	$(CC) $(CFLAGS) -I$(CURDIR)/../software/libapex -o $@ $< $(LDFLAGS) -lm
+
 run: $(USERSPACE_TARGETS)
 	@echo "=== Running SPI Protocol Unit Tests ==="
 	@./test_spi_protocol
@@ -87,6 +91,9 @@ run: $(USERSPACE_TARGETS)
 	@echo ""
 	@echo "=== Running Power State Machine Unit Tests ==="
 	@./test_power_states
+	@echo ""
+	@echo "=== Running libapex Unit Tests ==="
+	@./test_libapex
 	@echo ""
 
 check: run
