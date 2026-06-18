@@ -272,7 +272,7 @@ extern void apex_cc1101_read_burst(uint8_t addr, uint8_t *data, uint8_t len);
  * @addr: Register address (0x00-0x2E)
  * @val:  Value to write
  */
-void cc1101_write_reg(uint8_t addr, uint8_t val) {
+static void cc1101_write_reg(uint8_t addr, uint8_t val) {
     apex_cc1101_cs_assert();
     apex_cc1101_spi_xfer(CC1101_WRITE_SINGLE(addr));
     apex_cc1101_spi_xfer(val);
@@ -300,7 +300,7 @@ uint8_t cc1101_read_reg(uint8_t addr) {
  * @addr: Status register address (0x30-0x3D)
  * Returns: Status register value
  */
-uint8_t cc1101_read_status(uint8_t addr) {
+static uint8_t cc1101_read_status(uint8_t addr) {
     uint8_t val;
     apex_cc1101_cs_assert();
     apex_cc1101_spi_xfer(CC1101_READ_SINGLE(addr));
@@ -315,7 +315,7 @@ uint8_t cc1101_read_status(uint8_t addr) {
  * @cmd: Command strobe address (0x30-0x3D)
  * Returns: Chip status byte
  */
-uint8_t cc1101_strobe(uint8_t cmd) {
+static uint8_t cc1101_strobe(uint8_t cmd) {
     uint8_t status;
     apex_cc1101_cs_assert();
     status = apex_cc1101_spi_xfer(CC1101_STROBE(cmd));
@@ -343,8 +343,8 @@ uint8_t cc1101_strobe(uint8_t cmd) {
  * Returns: 0 on success, negative on error
  */
 int cc1101_init(void) {
-    uint8_t partnum, version;
-    uint8_t marcstate;
+    uint8_t partnum;
+    int timeout;
 
     /* Step 1: Pull CSn low and wait for MISO to go low.
      * This indicates the CC1101 is ready for SPI communication.
@@ -358,10 +358,14 @@ int cc1101_init(void) {
     apex_cc1101_cs_assert();
 
     /* Wait up to 300 μs for MISO to go low (CC1101 crystal startup) */
-    volatile uint32_t *gpio_in = (volatile uint32_t *)(RP2350B_GPIO_BASE + 0x04);
-    for (int i = 0; i < 3000; i++) {
+    const volatile uint32_t *gpio_in = (const volatile uint32_t *)(RP2350B_GPIO_BASE + 0x04);
+    for (timeout = 0; timeout < 3000; timeout++) {
         if (!(*gpio_in & (1UL << 12)))  /* PIN_CC_SPI_RX = GPIO 12 = MISO */
             break;
+    }
+    if (timeout >= 3000) {
+        /* CC1101 did not respond — MISO stayed high */
+        return -2;
     }
 
     apex_cc1101_cs_release();
@@ -378,9 +382,14 @@ int cc1101_init(void) {
      * Wait by reading MISO via another CSn assert cycle.
      */
     apex_cc1101_cs_assert();
-    for (int i = 0; i < 3000; i++) {
+    for (timeout = 0; timeout < 3000; timeout++) {
         if (!(*gpio_in & (1UL << 12)))
             break;
+    }
+    if (timeout >= 3000) {
+        /* CC1101 did not reset properly */
+        apex_cc1101_cs_release();
+        return -3;
     }
     apex_cc1101_cs_release();
 
@@ -423,15 +432,18 @@ int cc1101_init(void) {
     cc1101_strobe(CC1101_SCAL);
 
     /* Wait for calibration to complete (MARCSTATE goes to IDLE) */
-    for (int i = 0; i < 1000; i++) {
-        marcstate = cc1101_read_status(CC1101_MARCSTATE) & 0x1F;
+    for (timeout = 0; timeout < 1000; timeout++) {
+        uint8_t marcstate = cc1101_read_status(CC1101_MARCSTATE) & 0x1F;
         if (marcstate == 0x01)  /* MARCSTATE = IDLE */
             break;
+    }
+    if (timeout >= 1000) {
+        /* Calibration did not complete — CC1101 may be stuck */
+        return -4;
     }
 
     /* Step 7: Verify chip identity */
     partnum = cc1101_read_status(CC1101_PARTNUM);
-    version = cc1101_read_status(CC1101_VERSION);
 
     /* CC1101: PARTNUM = 0x00, VERSION = 0x14 (rev B) or 0x04 (rev A) */
     if (partnum != 0x00) {
@@ -494,7 +506,7 @@ void cc1101_enter_idle(void) {
 void cc1101_enter_sleep(void) {
     cc1101_strobe(CC1101_SIDLE);
 
-    /* Wait for IDLE state */
+    /* Wait for IDLE state with timeout */
     for (int i = 0; i < 1000; i++) {
         uint8_t marcstate = cc1101_read_status(CC1101_MARCSTATE) & 0x1F;
         if (marcstate == 0x01)

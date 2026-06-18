@@ -172,7 +172,7 @@ enum power_state {
  */
 static uint16_t adc_read_channel(uint8_t channel) {
     volatile uint32_t *adc_cs = (volatile uint32_t *)(RP2350B_ADC_BASE + ADC_CS);
-    volatile uint32_t *adc_result = (volatile uint32_t *)(RP2350B_ADC_BASE + ADC_RESULT);
+    const volatile uint32_t *adc_result = (const volatile uint32_t *)(RP2350B_ADC_BASE + ADC_RESULT);
 
     /* Select channel (bits 12-17 in CS) */
     uint32_t cs_val = *adc_cs;
@@ -233,7 +233,7 @@ static uint16_t adc_read_channel_averaged(uint8_t channel, uint8_t samples) {
  *
  * Returns: Battery voltage in mV (e.g., 3850 = 3.85V)
  */
-uint16_t battery_read_voltage_mv(void) {
+static uint16_t battery_read_voltage_mv(void) {
     uint16_t adc_raw;
     uint32_t vbat_mv;
 
@@ -273,7 +273,7 @@ uint16_t battery_read_voltage_mv(void) {
  * @vbat_mv: Battery voltage in mV
  * Returns: Estimated charge percentage (0-100)
  */
-uint8_t battery_get_percent(uint16_t vbat_mv) {
+static uint8_t battery_get_percent(uint16_t vbat_mv) {
     /* Simple linear model for Li-Po:
      * 4.2V = 100%
      * 3.7V = 50%  (nominal)
@@ -305,7 +305,7 @@ uint8_t battery_get_percent(uint16_t vbat_mv) {
  * @vbat_mv: Battery voltage in mV
  * Returns: true if battery is low (< 3300 mV)
  */
-bool battery_is_low(uint16_t vbat_mv) {
+static bool battery_is_low(uint16_t vbat_mv) {
     return vbat_mv < 3300;
 }
 
@@ -315,7 +315,7 @@ bool battery_is_low(uint16_t vbat_mv) {
  * @vbat_mv: Battery voltage in mV
  * Returns: true if battery is critical (< 3000 mV)
  */
-bool battery_is_critical(uint16_t vbat_mv) {
+static bool battery_is_critical(uint16_t vbat_mv) {
     return vbat_mv < 3000;
 }
 
@@ -330,7 +330,7 @@ bool battery_is_critical(uint16_t vbat_mv) {
  *
  * Returns: Temperature in °C × 10 (e.g., 275 = 27.5°C)
  */
-int16_t temperature_read_dc10(void) {
+static int16_t temperature_read_dc10(void) {
     uint16_t adc_raw;
     int32_t temp_dc10;
 
@@ -367,7 +367,7 @@ int16_t temperature_read_dc10(void) {
  * @temp_dc10: Temperature in °C × 10
  * Returns: true if temperature exceeds 85°C (thermal throttle threshold)
  */
-bool temperature_is_overtemp(int16_t temp_dc10) {
+static bool temperature_is_overtemp(int16_t temp_dc10) {
     return temp_dc10 > 850;  /* 85.0°C */
 }
 
@@ -377,7 +377,7 @@ bool temperature_is_overtemp(int16_t temp_dc10) {
  * @temp_dc10: Temperature in °C × 10
  * Returns: true if temperature exceeds 105°C (hard shutdown threshold)
  */
-bool temperature_is_critical(int16_t temp_dc10) {
+static bool temperature_is_critical(int16_t temp_dc10) {
     return temp_dc10 > 1050;  /* 105.0°C */
 }
 

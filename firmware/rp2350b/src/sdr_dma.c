@@ -213,7 +213,7 @@ void sdr_dma_irq_handler(void) {
  * Configures DMA channel 0 to read from SPI1 RX FIFO and write into
  * the specified block of the ring buffer.
  */
-void sdr_dma_start_block(uint8_t block_idx) {
+static void sdr_dma_start_block(uint8_t block_idx) {
     uint32_t block_addr = (uint32_t)&sdr_ring_buf[block_idx * SDR_RING_BLOCK_SIZE];
 
     /* Configure DMA channel 0 for SPI1 RX → ring buffer */

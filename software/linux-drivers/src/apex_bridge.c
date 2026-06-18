@@ -598,11 +598,13 @@ static ssize_t apex_bridge_read(struct file *filp, char __user *buf,
     spin_unlock(&dev->rx_lock);
 
     if (copy_to_user(buf, kbuf, copied)) {
-        kfree(kbuf);
+        /* Zero kernel buffer before freeing to avoid leaking protocol data */
+        kzfree(kbuf);
         return -EFAULT;
     }
 
-    kfree(kbuf);
+    /* Wipe kernel buffer that may contain protocol/sensor data */
+    kzfree(kbuf);
     return copied;
 }
 
@@ -1804,15 +1806,16 @@ static int apex_bridge_mmap(struct file *filp, struct vm_area_struct *vma)
      */
     vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
-    /* Map all buffers as a single contiguous region using the first buffer's
-     * DMA address as the physical base. This assumes DMA-coherent buffers
-     * are allocated contiguously (which dma_alloc_coherent typically provides
-     * for each individual buffer, but buffers may not be contiguous with
-     * each other). We map buffer-by-buffer to handle non-contiguous cases.
+    /* WARNING: Modifying vma->vm_start/vm_end is a dangerous practice that
+     * can cause kernel VM subsystem corruption in some kernel versions.
+     * This code saves/restores the original values to minimize risk, but
+     * a more robust approach would be to use remap_pfn_range() with
+     * dma_to_phys() for each page, or implement a vm_operations_struct
+     * with a .fault handler. See kernel documentation at
+     * Documentation/driver-api/driver-model/dma-mapping.rst.
      *
-     * Note: dma_mmap_coherent() modifies vma->vm_start internally, so we
-     * must save and restore it around each call, and adjust vm_pgoff for
-     * each subsequent buffer.
+     * TODO: Refactor to avoid modifying VMA fields directly. Use
+     * remap_pfn_range() or implement vm_ops->fault() instead.
      */
     {
         unsigned long orig_vm_start = vma->vm_start;

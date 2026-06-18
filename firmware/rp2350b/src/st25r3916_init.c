@@ -456,9 +456,14 @@ uint16_t st25r3916_get_field_strength_mv(void) {
     /* Send MEASURE_AMPLITUDE direct command */
     st25r3916_send_command(ST25R3916_CMD_MEASURE_AMPLITUDE);
 
-    /* Wait for measurement to complete (typically 50-100 μs) */
-    for (volatile int i = 0; i < 1500; i++)
-        __asm__("nop");
+    /* Wait for measurement to complete (typically 50-100 μs).
+     * Poll the IRQ register for completion rather than using a fixed
+     * delay, with a timeout to avoid hanging if the chip is unresponsive. */
+    for (int timeout = 0; timeout < 5000; timeout++) {
+        uint8_t irq1 = st25r3916_read_reg(ST25R3916_REG_IRQ1);
+        if (irq1 & 0x01)  /* MEASURE_AMPLITUDE_DONE bit */
+            break;
+    }
 
     /* Read the RSSI register which contains the amplitude measurement result.
      * The RSSI register gives an 8-bit value (0-255) representing the
@@ -466,6 +471,7 @@ uint16_t st25r3916_get_field_strength_mv(void) {
     result = st25r3916_read_reg(ST25R3916_REG_RSSI);
 
     /* Convert: amplitude_mV = result * 5000 / 255
-     * Using 32-bit arithmetic to avoid overflow */
-    return (uint16_t)((uint32_t)result * 5000 / 255);
+     * Using 32-bit arithmetic to avoid overflow: result * 5000 fits in uint32_t
+     * since result ≤ 255 and 255 * 5000 = 1,275,000 < 4,294,967,295. */
+    return (uint16_t)((uint32_t)result * 5000U / 255U);
 }
