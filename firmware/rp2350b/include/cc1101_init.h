@@ -76,4 +76,72 @@
 #define CC1101_SFRX         0x3A    /**< Flush RX FIFO */
 #define CC1101_SFTX         0x3B    /**< Flush TX FIFO */
 #define CC1101_SWORRST      0x3C    /**< Reset WOR timer */
-#define CC1101_SNOP         
+#define CC1101_SNOP         0x3D    /**< No operation */
+
+/* ── CC1101 public API ─────────────────────────────────────────────────── */
+
+/**
+ * cc1101_init — Initialize CC1101 sub-GHz radio
+ *
+ * Configures the CC1101 for 868 MHz ISM band operation with GFSK
+ * modulation at 250 kbps. Performs full reset, register write,
+ * calibration, and ID verification.
+ *
+ * Returns: 0 on success, -1 on part number mismatch,
+ *          -2 on MISO timeout, -3 on reset timeout, -4 on calibration timeout
+ */
+int cc1101_init(void);
+
+/**
+ * cc1101_enter_rx — Put CC1101 into RX mode
+ */
+void cc1101_enter_rx(void);
+
+/**
+ * cc1101_enter_tx — Put CC1101 into TX mode
+ */
+void cc1101_enter_tx(void);
+
+/**
+ * cc1101_enter_idle — Put CC1101 into IDLE mode
+ */
+void cc1101_enter_idle(void);
+
+/**
+ * cc1101_enter_sleep — Put CC1101 into power-down mode
+ */
+void cc1101_enter_sleep(void);
+
+/**
+ * cc1101_write_tx_fifo — Write data to CC1101 TX FIFO
+ *
+ * @data: Pointer to data to transmit
+ * @len:  Number of bytes to write
+ */
+void cc1101_write_tx_fifo(const uint8_t *data, uint8_t len);
+
+/**
+ * cc1101_read_rx_fifo — Read data from CC1101 RX FIFO
+ *
+ * @data: Buffer to store received data
+ * @len:  Number of bytes to read
+ */
+void cc1101_read_rx_fifo(uint8_t *data, uint8_t len);
+
+/**
+ * cc1101_get_rssi_dbm — Convert CC1101 RSSI register value to dBm
+ *
+ * @rssi_dec: Raw RSSI value from CC1101_RSSI status register
+ * Returns: RSSI in dBm (int16_t, range approximately -128 to +10)
+ */
+int16_t cc1101_get_rssi_dbm(uint8_t rssi_dec);
+
+/**
+ * cc1101_get_rssi_x10 — Get current RSSI in dBm × 10 for telemetry
+ *
+ * Reads the RSSI register and converts to dBm × 10.
+ * Returns: RSSI in dBm × 10 (e.g., -740 = -74.0 dBm)
+ */
+int16_t cc1101_get_rssi_x10(void);
+
+#endif /* CC1101_INIT_H */

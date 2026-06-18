@@ -127,7 +127,7 @@ static void watchdog_bark_handler(void)
     st25r3916_stop_polling();
 
     /* Put CC1101 in idle */
-    cc1101_set_idle();
+    cc1101_enter_idle();
 
     /* Re-kick watchdog — if we got here, the main loop is stuck.
      * Give the system one more chance before letting the watchdog
@@ -217,10 +217,9 @@ static void collect_telemetry(void)
     /* SDR RSSI (would come from LMS7002M driver; placeholder) */
     /* TODO: Read LMS7002M RSSI register when SDR driver is integrated */
 
-    /* CC1101 RSSI */
+    /* CC1101 RSSI — get_rssi_x10 reads the register internally */
     if (g_state.cc1101_ready) {
-        int8_t rssi = cc1101_get_rssi_dbm();
-        cc_rssi_x10 = (uint16_t)(rssi * 10);
+        cc_rssi_x10 = (uint16_t)cc1101_get_rssi_x10();
     }
 
     /* NFC field strength */

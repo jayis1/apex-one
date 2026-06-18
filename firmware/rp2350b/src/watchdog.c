@@ -196,9 +196,12 @@ void watchdog_reboot(bool intentional) {
     /* Load minimum timeout — will reset in ~1 μs */
     *wd_load = 1;
 
-    /* Wait for reset (should never return) */
+    /* Wait for reset (should never return).
+     * Use __builtin_unreachable() to inform the compiler that
+     * this loop is infinite, preventing it from optimizing away
+     * the watchdog setup or assuming the function returns. */
     while (1)
-        __asm__("nop");
+        __asm__ volatile("" ::: "memory");  /* compiler barrier only */
 }
 
 /**
@@ -227,7 +230,7 @@ void watchdog_enable_bark(void) {
  *          WD_REASON_FORCE = forced)
  */
 uint32_t watchdog_get_reason(void) {
-    volatile uint32_t *wd_reason = (volatile uint32_t *)(RP2350B_WATCHDOG_BASE + WD_REASON);
+    const volatile uint32_t *wd_reason = (const volatile uint32_t *)(RP2350B_WATCHDOG_BASE + WD_REASON);
     return *wd_reason;
 }
 
@@ -241,7 +244,7 @@ uint32_t watchdog_get_scratch(uint8_t index) {
     if (index > 7)
         return 0;
 
-    volatile uint32_t *wd_scratch = (volatile uint32_t *)(RP2350B_WATCHDOG_BASE + WD_SCRATCH0);
+    const volatile uint32_t *wd_scratch = (const volatile uint32_t *)(RP2350B_WATCHDOG_BASE + WD_SCRATCH0);
     return wd_scratch[index];
 }
 
@@ -275,7 +278,7 @@ void watchdog_set_scratch(uint8_t index, uint32_t val) {
  * firmware can detect and report brownout resets on boot.
  * ======================================================================== */
 
-#define WD_SCRATCH_BOD_MAGIC   0xB07D0001UL  /* "BOD1" — brownout detected marker */
+#define WD_SCRATCH_BOD_MAGIC   0xB047B00FUL  /* Must match WATCHDOG_BROWNOUT_MAGIC in watchdog.h */
 
 /**
  * watchdog_mark_brownout — Mark that a brownout event was detected

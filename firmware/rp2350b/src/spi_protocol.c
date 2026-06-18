@@ -529,7 +529,7 @@ static void handle_cmd_ant_select(const uint8_t *payload, uint16_t len) {
  *   - data[]:    Register values
  */
 static void handle_cmd_cc1101_cfg(const uint8_t *payload, uint16_t len) {
-    struct cc1101_cfg_cmd *cfg;
+    const struct cc1101_cfg_cmd *cfg;
     proto_stats.cmd_cc1101_cfg_rx++;
 
     if (len < 2)  /* At minimum: addr + len */
@@ -596,7 +596,7 @@ static void handle_cmd_nfc_transact(const uint8_t *payload, uint16_t len) {
  * Returns: 0 on success, -1 on CRC error, -2 on sync error
  */
 static int validate_frame_header(void) {
-    struct spi_frame_header *hdr = (struct spi_frame_header *)rx_ctx.hdr_buf;
+    const struct spi_frame_header *hdr = (const struct spi_frame_header *)rx_ctx.hdr_buf;
 
     /* Check sync byte */
     if (hdr->sync != SPI_SYNC_BYTE) {
@@ -640,7 +640,7 @@ static int validate_frame_payload(void) {
  * ======================================================================== */
 
 static void dispatch_frame(void) {
-    struct spi_frame_header *hdr = (struct spi_frame_header *)rx_ctx.hdr_buf;
+    const struct spi_frame_header *hdr = (const struct spi_frame_header *)rx_ctx.hdr_buf;
     uint8_t cmd = hdr->cmd;
     uint16_t len = rx_ctx.expected_payload_len;
 
@@ -929,12 +929,10 @@ void spi_protocol_update_telemetry(uint16_t rssi_dbm_x10,
 /**
  * spi_protocol_tick — 1 ms system tick
  *
- * Call from a timer interrupt or main loop to update uptime,
- * trigger periodic telemetry, and feed the hardware watchdog.
+ * Call from a timer interrupt or main loop to update uptime.
+ * Note: Watchdog feeding is handled separately in the main loop
+ * via watchdog_kick(), not here, to avoid double-feeding.
  */
 void spi_protocol_tick(void) {
     device_state.uptime_ms++;
-
-    /* Feed the hardware watchdog to prevent reset */
-    watchdog_feed();
 }

@@ -250,8 +250,7 @@ static void clocks_init(void) {
     /* Configure PLL_SYS: REFDIV=1, FBDIV=125, POSTDIV1=5, POSTDIV2=2 */
     /* VCO = 12 MHz * 125 / 1 = 1500 MHz */
     /* Output = 1500 / 5 / 2 = 150 MHz */
-    REG32(RP2350B_CLOCKS_BASE + 0x40) = (PLL_SYS_REFDIV << 0) |   /* REFDIV */
-                                          (0 << 12);                  /* Not bypassed */
+    REG32(RP2350B_CLOCKS_BASE + 0x40) = PLL_SYS_REFDIV;         /* REFDIV */
     REG32(RP2350B_CLOCKS_BASE + 0x44) = PLL_SYS_FBDIV << 0;       /* FBDIV */
     REG32(RP2350B_CLOCKS_BASE + 0x48) = (PLL_SYS_POSTDIV1 << 0) | /* POSTDIV1 */
                                           (PLL_SYS_POSTDIV2 << 4);    /* POSTDIV2 */
@@ -531,15 +530,13 @@ static void pio0_ant_switch_init(void) {
     /* CLKDIV: 150 MHz / 1 = 150 MHz (fast switching) */
     pio[0xC8 / 4] = (1 << 16);  /* SM0 CLKDIV: fraction=0, integer=1 */
 
-    /* EXECCTRL: wrap at instruction 1, wrap target at 0 */
-    pio[0xCC / 4] = (1 << 28) |   /* wrap_top = 1 */
-                     (0 << 26);    /* wrap_bottom = 0 */
+    /* EXECCTRL: wrap at instruction 1, wrap target at instruction 0 */
+    pio[0xCC / 4] = (1U << 28);    /* wrap_top = 1, wrap_bottom = 0 */
 
     /* SHIFTCTRL: auto-fill from TX FIFO, shift right */
     pio[0xD0 / 4] = (1 << 23) |   /* AUTO_PUSH disabled */
                      (1 << 25) |   /* AUTO_PULL enabled */
-                     (2 << 29) |   /* PULL_THRESH = 2 bits */
-                     (0 << 19);    /* Shift right */
+                     (2 << 29);    /* PULL_THRESH = 2 bits */
 
     /* PINCTRL: OUT pins 2-3 (2 pins), SET pins 2-3 (2 pins) */
     pio[0xD4 / 4] = (2 << 0)  |   /* OUT_COUNT = 2 */
@@ -578,9 +575,9 @@ static void pio1_cc_tx_init(void) {
 
     /* Configure SM0: 1 MHz clock for sub-GHz OOK */
     /* CLKDIV: 150 MHz / 150 = 1 MHz */
-    pio[0xC8 / 4] = (0 << 16) | 150;  /* fraction=0, integer=150 */
+    pio[0xC8 / 4] = 150;  /* fraction=0, integer=150 */
 
-    pio[0xCC / 4] = (1 << 28) | (0 << 26);
+    pio[0xCC / 4] = (1U << 28);  /* wrap_top=1, wrap_bottom=0 */
     pio[0xD0 / 4] = (1 << 25) | (1 << 29);  /* AUTO_PULL, PULL_THRESH=1 */
     pio[0xD4 / 4] = (1 << 0) | (1 << 5) | (13 << 20) | (13 << 26);
     /* OUT_BASE=13 (PIN_CC_GDO0=13), SET_BASE=13 */
@@ -602,10 +599,10 @@ static void adc_init(void) {
     adc[0x14 / 4] = (1 << 24);  /* FCS_THRESH = 1 */
 
     /* Enable temperature sensor (channel 4) */
-    adc[0x04 / 4] |= (1U << 4);  /* CS_TEMP_EN */
+    adc[0x04 >> 2] |= (1U << 4);  /* CS_TEMP_EN */
 
     /* Select channel 0 for battery voltage */
-    adc[0x04 / 4] = (adc[0x04 / 4] & ~0x7) | 0;  /* INSEL = ADC0 (VBAT) */
+    adc[0x04 >> 2] = (adc[0x04 >> 2] & ~0x7U);  /* INSEL = ADC0 (VBAT) */
 }
 
 /* ========================================================================
@@ -673,11 +670,8 @@ void rp2350b_init(void) {
     /* Step 9: Configure NVIC interrupts */
     nvic_init();
 
-    /* Step 10: Assert HOST_RDY to signal RK3576 that MCU is ready */
-    /* HOST_RDY is an output from RK3576 to MCU, so we just enable the
-     * interrupt for it. MCU signals readiness by not asserting INT_REQ. */
-    volatile uint32_t *gpio_out = (volatile uint32_t *)(RP2350B_GPIO_BASE + 0x00);
-    /* INT_REQ is already HIGH (deasserted) from gpio_init() */
+    /* Step 10: MCU signals readiness by keeping INT_REQ deasserted (HIGH).
+     * This was already done in gpio_init(). No additional action needed. */
 
     /* System is now ready for SPI communication with RK3576 */
 }
@@ -702,15 +696,18 @@ void spi0_handler(void) {
 
     /* Read all available data from SPI0 RX FIFO */
     while (spi[SPI_SSPSR / 4] & SPI_SSPSR_RNE) {
-        uint32_t data = spi[SPI_SSPDR / 4];
+        uint8_t byte = (uint8_t)(spi[SPI_SSPDR / 4] & 0xFF);
 
         /* Store in ring buffer */
         uint32_t next_head = (spi_rx_head + 1) % SPI_RX_BUF_SIZE;
         if (next_head != spi_rx_tail) {
-            spi_rx_buf[spi_rx_head] = (uint8_t)(data & 0xFF);
+            spi_rx_buf[spi_rx_head] = byte;
             spi_rx_head = next_head;
+        } else {
+            /* Buffer overflow — data is lost. This should never happen
+             * with proper flow control. The host should not send data
+             * faster than the MCU can process it. */
         }
-        /* If buffer full, data is lost — this should never happen with proper flow control */
     }
 
     /* Clear interrupt */
