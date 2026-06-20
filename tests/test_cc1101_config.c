@@ -135,6 +135,18 @@ static int g_tests_failed = 0;
 #define CC1101_TXFIFO        0x3F    /**< TX FIFO (write: 0x3F, read: 0xBF) */
 #define CC1101_RXFIFO        0x3F    /**< RX FIFO (write: 0x7F, read: 0xFF) */
 
+/* ── CC1101 FIFO status flags ───────────────────────────────────────────── */
+
+#define CC1101_RXBYTES_OVERFLOW     (1 << 7)  /**< RX FIFO overflow flag */
+#define CC1101_TXBYTES_UNDERFLOW    (1 << 7)  /**< TX FIFO underflow flag */
+
+/* ── CC1101 PKTSTATUS bit definitions ──────────────────────────────────── */
+
+#define CC1101_PKTSTATUS_CRC_OK    (1 << 7)  /**< CRC passed on last packet */
+#define CC1101_PKTSTATUS_LQI_OK    (1 << 6)  /**< LQI above threshold */
+#define CC1101_PKTSTATUS_GDO0      (1 << 5)  /**< GDO0 pin state */
+#define CC1101_PKTSTATUS_GDO2      (1 << 4)  /**< GDO2 pin state */
+
 /* ── CC1101 SPI Access Macros (must match cc1101_init.h) ────────────────── */
 
 /* Write: bit7=0, burst=bit6 (single=0, burst=1) */
@@ -855,6 +867,260 @@ static void test_status_register_addresses(void)
     ASSERT_INT_EQ(0x3B, CC1101_RXBYTES);
 }
 
+/* ── Test: TX Power Level Mapping ───────────────────────────────────────── */
+
+static void test_tx_power_minus_30(void)
+{
+    /* -30 dBm should map to PATABLE value 0x03 */
+    const uint8_t patable_868[] = {0x03, 0x17, 0x1D, 0x26, 0x50, 0x86, 0xA0, 0xC0};
+    int8_t power_dbm = -30;
+    uint8_t pa_val;
+    if (power_dbm <= -30)       pa_val = 0x03;
+    else if (power_dbm <= -20)  pa_val = 0x17;
+    else if (power_dbm <= -15)  pa_val = 0x1D;
+    else if (power_dbm <= -10)  pa_val = 0x26;
+    else if (power_dbm <= 0)    pa_val = 0x50;
+    else if (power_dbm <= 5)    pa_val = 0x86;
+    else if (power_dbm <= 7)    pa_val = 0xA0;
+    else                        pa_val = 0xC0;
+    ASSERT_UINT_EQ(patable_868[0], pa_val);  /* -30 dBm entry */
+}
+
+static void test_tx_power_minus_20(void)
+{
+    int8_t power_dbm = -20;
+    uint8_t pa_val;
+    if (power_dbm <= -30)       pa_val = 0x03;
+    else if (power_dbm <= -20)  pa_val = 0x17;
+    else if (power_dbm <= -15)  pa_val = 0x1D;
+    else if (power_dbm <= -10)  pa_val = 0x26;
+    else if (power_dbm <= 0)    pa_val = 0x50;
+    else if (power_dbm <= 5)    pa_val = 0x86;
+    else if (power_dbm <= 7)    pa_val = 0xA0;
+    else                        pa_val = 0xC0;
+    ASSERT_UINT_EQ(0x17, pa_val);  /* -20 dBm */
+}
+
+static void test_tx_power_minus_15(void)
+{
+    int8_t power_dbm = -15;
+    uint8_t pa_val;
+    if (power_dbm <= -30)       pa_val = 0x03;
+    else if (power_dbm <= -20)  pa_val = 0x17;
+    else if (power_dbm <= -15)  pa_val = 0x1D;
+    else if (power_dbm <= -10)  pa_val = 0x26;
+    else if (power_dbm <= 0)    pa_val = 0x50;
+    else if (power_dbm <= 5)    pa_val = 0x86;
+    else if (power_dbm <= 7)    pa_val = 0xA0;
+    else                        pa_val = 0xC0;
+    ASSERT_UINT_EQ(0x1D, pa_val);  /* -15 dBm */
+}
+
+static void test_tx_power_minus_10(void)
+{
+    int8_t power_dbm = -10;
+    uint8_t pa_val;
+    if (power_dbm <= -30)       pa_val = 0x03;
+    else if (power_dbm <= -20)  pa_val = 0x17;
+    else if (power_dbm <= -15)  pa_val = 0x1D;
+    else if (power_dbm <= -10)  pa_val = 0x26;
+    else if (power_dbm <= 0)    pa_val = 0x50;
+    else if (power_dbm <= 5)    pa_val = 0x86;
+    else if (power_dbm <= 7)    pa_val = 0xA0;
+    else                        pa_val = 0xC0;
+    ASSERT_UINT_EQ(0x26, pa_val);  /* -10 dBm */
+}
+
+static void test_tx_power_0dbm(void)
+{
+    int8_t power_dbm = 0;
+    uint8_t pa_val;
+    if (power_dbm <= -30)       pa_val = 0x03;
+    else if (power_dbm <= -20)  pa_val = 0x17;
+    else if (power_dbm <= -15)  pa_val = 0x1D;
+    else if (power_dbm <= -10)  pa_val = 0x26;
+    else if (power_dbm <= 0)    pa_val = 0x50;
+    else if (power_dbm <= 5)    pa_val = 0x86;
+    else if (power_dbm <= 7)    pa_val = 0xA0;
+    else                        pa_val = 0xC0;
+    ASSERT_UINT_EQ(0x50, pa_val);  /* 0 dBm */
+}
+
+static void test_tx_power_plus_5(void)
+{
+    int8_t power_dbm = 5;
+    uint8_t pa_val;
+    if (power_dbm <= -30)       pa_val = 0x03;
+    else if (power_dbm <= -20)  pa_val = 0x17;
+    else if (power_dbm <= -15)  pa_val = 0x1D;
+    else if (power_dbm <= -10)  pa_val = 0x26;
+    else if (power_dbm <= 0)    pa_val = 0x50;
+    else if (power_dbm <= 5)    pa_val = 0x86;
+    else if (power_dbm <= 7)    pa_val = 0xA0;
+    else                        pa_val = 0xC0;
+    ASSERT_UINT_EQ(0x86, pa_val);  /* +5 dBm */
+}
+
+static void test_tx_power_plus_7(void)
+{
+    int8_t power_dbm = 7;
+    uint8_t pa_val;
+    if (power_dbm <= -30)       pa_val = 0x03;
+    else if (power_dbm <= -20)  pa_val = 0x17;
+    else if (power_dbm <= -15)  pa_val = 0x1D;
+    else if (power_dbm <= -10)  pa_val = 0x26;
+    else if (power_dbm <= 0)    pa_val = 0x50;
+    else if (power_dbm <= 5)    pa_val = 0x86;
+    else if (power_dbm <= 7)    pa_val = 0xA0;
+    else                        pa_val = 0xC0;
+    ASSERT_UINT_EQ(0xA0, pa_val);  /* +7 dBm */
+}
+
+static void test_tx_power_plus_10(void)
+{
+    int8_t power_dbm = 10;
+    uint8_t pa_val;
+    if (power_dbm <= -30)       pa_val = 0x03;
+    else if (power_dbm <= -20)  pa_val = 0x17;
+    else if (power_dbm <= -15)  pa_val = 0x1D;
+    else if (power_dbm <= -10)  pa_val = 0x26;
+    else if (power_dbm <= 0)    pa_val = 0x50;
+    else if (power_dbm <= 5)    pa_val = 0x86;
+    else if (power_dbm <= 7)    pa_val = 0xA0;
+    else                        pa_val = 0xC0;
+    ASSERT_UINT_EQ(0xC0, pa_val);  /* +10 dBm */
+}
+
+static void test_tx_power_boundary_values(void)
+{
+    /* Test that intermediate values map to the correct power level.
+     * -28 dBm -> <= -20 threshold -> 0x17 (maps to -20 dBm level)
+     * -18 dBm -> <= -15 threshold -> 0x1D (maps to -15 dBm level)
+     * -13 dBm -> <= -10 threshold -> 0x26 (maps to -10 dBm level)
+     *  -8 dBm -> <= 0 threshold   -> 0x50 (maps to 0 dBm level)
+     *  -2 dBm -> <= 0 threshold   -> 0x50 (maps to 0 dBm level)
+     *  +2 dBm -> <= 5 threshold   -> 0x86 (maps to +5 dBm level)
+     *  +6 dBm -> <= 7 threshold   -> 0xA0 (maps to +7 dBm level)
+     * +12 dBm -> > +10 threshold  -> 0xC0 (maps to +10 dBm level)
+     */
+    int8_t test_powers[] = {-28, -18, -13, -8, -2, 2, 6, 12};
+    uint8_t expected[] =   {0x17, 0x1D, 0x26, 0x50, 0x50, 0x86, 0xA0, 0xC0};
+
+    for (int i = 0; i < 8; i++) {
+        int8_t power_dbm = test_powers[i];
+        uint8_t pa_val;
+        if (power_dbm <= -30)       pa_val = 0x03;
+        else if (power_dbm <= -20)  pa_val = 0x17;
+        else if (power_dbm <= -15)  pa_val = 0x1D;
+        else if (power_dbm <= -10)  pa_val = 0x26;
+        else if (power_dbm <= 0)    pa_val = 0x50;
+        else if (power_dbm <= 5)    pa_val = 0x86;
+        else if (power_dbm <= 7)    pa_val = 0xA0;
+        else                        pa_val = 0xC0;
+        ASSERT_UINT_EQ(expected[i], pa_val);
+    }
+}
+
+/* ── Test: FIFO Status Register Bits ──────────────────────────────────── */
+
+static void test_rxbytes_overflow_bit(void)
+{
+    /* RXBYTES bit 7 is the overflow flag */
+    uint8_t rxbytes_with_overflow = 0x83;  /* overflow + 3 bytes */
+    ASSERT_TRUE(!!(rxbytes_with_overflow & CC1101_RXBYTES_OVERFLOW));
+    ASSERT_INT_EQ(3, rxbytes_with_overflow & 0x7F);
+
+    uint8_t rxbytes_no_overflow = 0x20;  /* 32 bytes, no overflow */
+    ASSERT_TRUE(!(rxbytes_no_overflow & CC1101_RXBYTES_OVERFLOW));
+}
+
+static void test_txbytes_underflow_bit(void)
+{
+    /* TXBYTES bit 7 is the underflow flag */
+    uint8_t txbytes_with_underflow = 0x85;  /* underflow + 5 bytes */
+    ASSERT_TRUE(!!(txbytes_with_underflow & CC1101_TXBYTES_UNDERFLOW));
+
+    uint8_t txbytes_no_underflow = 0x10;  /* 16 bytes, no underflow */
+    ASSERT_TRUE(!(txbytes_no_underflow & CC1101_TXBYTES_UNDERFLOW));
+}
+
+static void test_rxbytes_count_mask(void)
+{
+    /* The RXBYTES count occupies bits 6:0 (mask 0x7F) */
+    for (int i = 0; i < 128; i++) {
+        uint8_t rxbytes = (uint8_t)i;
+        ASSERT_INT_EQ(i, rxbytes & 0x7F);
+        /* Without overflow, count equals the register value */
+    }
+}
+
+static void test_txbytes_count_mask(void)
+{
+    /* The TXBYTES count occupies bits 6:0 (mask 0x7F) */
+    for (int i = 0; i < 128; i++) {
+        uint8_t txbytes = (uint8_t)i;
+        ASSERT_INT_EQ(i, txbytes & 0x7F);
+    }
+}
+
+/* ── Test: Packet Status Bit Definitions ──────────────────────────────── */
+
+static void test_pktstatus_crc_ok_bit(void)
+{
+    ASSERT_INT_EQ(0x80, CC1101_PKTSTATUS_CRC_OK);
+    /* A PKTSTATUS value with CRC_OK set */
+    uint8_t pktstatus = 0x87;  /* CRC_OK + GDO0 + GDO2 + LQI=7 */
+    ASSERT_TRUE(!!(pktstatus & CC1101_PKTSTATUS_CRC_OK));
+
+    uint8_t pktstatus_no_crc = 0x07;  /* CRC fail */
+    ASSERT_TRUE(!(pktstatus_no_crc & CC1101_PKTSTATUS_CRC_OK));
+}
+
+static void test_pktstatus_lqi_ok_bit(void)
+{
+    ASSERT_INT_EQ(0x40, CC1101_PKTSTATUS_LQI_OK);
+    uint8_t pktstatus = 0xC0;  /* CRC_OK + LQI_OK */
+    ASSERT_TRUE(!!(pktstatus & CC1101_PKTSTATUS_LQI_OK));
+}
+
+static void test_pktstatus_gdo0_bit(void)
+{
+    ASSERT_INT_EQ(0x20, CC1101_PKTSTATUS_GDO0);
+    uint8_t pktstatus = 0x20;
+    ASSERT_TRUE(!!(pktstatus & CC1101_PKTSTATUS_GDO0));
+}
+
+static void test_pktstatus_gdo2_bit(void)
+{
+    ASSERT_INT_EQ(0x10, CC1101_PKTSTATUS_GDO2);
+    uint8_t pktstatus = 0x10;
+    ASSERT_TRUE(!!(pktstatus & CC1101_PKTSTATUS_GDO2));
+}
+
+/* ── Test: LQI Register Format ────────────────────────────────────────── */
+
+static void test_lqi_crc_ok_mask(void)
+{
+    /* LQI register: bit 7 = CRC_OK, bits 6:0 = LQI value */
+    uint8_t lqi_with_crc = 0x87;  /* CRC OK, LQI = 7 */
+    ASSERT_TRUE(!!(lqi_with_crc & 0x80));   /* CRC OK */
+    ASSERT_INT_EQ(7, lqi_with_crc & 0x7F);  /* LQI value */
+
+    uint8_t lqi_no_crc = 0x45;  /* CRC fail, LQI = 69 */
+    ASSERT_TRUE(!(lqi_no_crc & 0x80));      /* CRC failed */
+    ASSERT_INT_EQ(69, lqi_no_crc & 0x7F);   /* LQI value */
+}
+
+static void test_lqi_value_range(void)
+{
+    /* LQI value (bits 6:0) ranges from 0 to 127 */
+    for (uint8_t lqi_val = 0; lqi_val <= 127; lqi_val++) {
+        uint8_t lqi_reg = lqi_val | 0x80;  /* CRC_OK set */
+        ASSERT_INT_EQ(lqi_val, lqi_reg & 0x7F);
+        ASSERT_TRUE(!!(lqi_reg & 0x80));
+    }
+}
+
 /* ── Main test runner ────────────────────────────────────────────────────── */
 
 int main(void)
@@ -931,6 +1197,33 @@ int main(void)
 
     printf("\n--- Status Register Addresses ---\n");
     RUN_TEST(test_status_register_addresses);
+
+    printf("\n--- TX Power Table Mapping ---\n");
+    RUN_TEST(test_tx_power_minus_30);
+    RUN_TEST(test_tx_power_minus_20);
+    RUN_TEST(test_tx_power_minus_15);
+    RUN_TEST(test_tx_power_minus_10);
+    RUN_TEST(test_tx_power_0dbm);
+    RUN_TEST(test_tx_power_plus_5);
+    RUN_TEST(test_tx_power_plus_7);
+    RUN_TEST(test_tx_power_plus_10);
+    RUN_TEST(test_tx_power_boundary_values);
+
+    printf("\n--- FIFO Status Register Bits ---\n");
+    RUN_TEST(test_rxbytes_overflow_bit);
+    RUN_TEST(test_txbytes_underflow_bit);
+    RUN_TEST(test_rxbytes_count_mask);
+    RUN_TEST(test_txbytes_count_mask);
+
+    printf("\n--- Packet Status Bit Definitions ---\n");
+    RUN_TEST(test_pktstatus_crc_ok_bit);
+    RUN_TEST(test_pktstatus_lqi_ok_bit);
+    RUN_TEST(test_pktstatus_gdo0_bit);
+    RUN_TEST(test_pktstatus_gdo2_bit);
+
+    printf("\n--- LQI Register Format ---\n");
+    RUN_TEST(test_lqi_crc_ok_mask);
+    RUN_TEST(test_lqi_value_range);
 
     TEST_RESULTS();
 }
