@@ -698,11 +698,19 @@ void rp2350b_init(void) {
  * SPI0 Slave Interrupt Handler (Bridge RX from RK3576)
  * ======================================================================== */
 
-/* RX ring buffer for incoming SPI frames from RK3576 */
+/* RX ring buffer for incoming SPI frames from RK3576.
+ *
+ * NOTE: This ring-buffer ISR approach is the *fallback* implementation.
+ * When spi0_isr.c is linked (which provides a full frame-assembly state
+ * machine), its spi0_handler() takes priority via weak linkage. The
+ * spi_protocol_process() function in spi_protocol.c can operate in
+ * either mode: draining this ring buffer (fallback) or calling
+ * spi0_rx_get_frame() (preferred).
+ */
 #define SPI_RX_BUF_SIZE  8192
-static uint8_t spi_rx_buf[SPI_RX_BUF_SIZE];
-static volatile uint32_t spi_rx_head = 0;
-static volatile uint32_t spi_rx_tail = 0;
+uint8_t spi_rx_buf[SPI_RX_BUF_SIZE];
+volatile uint32_t spi_rx_head = 0;
+volatile uint32_t spi_rx_tail = 0;
 static volatile uint32_t spi_rx_overrun = 0;  /* Overflow counter for diagnostics */
 
 /* TX response buffer */
@@ -710,7 +718,15 @@ static volatile uint32_t spi_rx_overrun = 0;  /* Overflow counter for diagnostic
 static uint8_t spi_tx_buf[SPI_TX_BUF_SIZE];
 static volatile uint32_t spi_tx_len = 0;
 
-void spi0_handler(void) {
+/*
+ * spi0_handler — Fallback SPI0 interrupt handler
+ *
+ * This simple handler stores received bytes in a ring buffer for
+ * spi_protocol_process() to drain. The preferred implementation
+ * in spi0_isr.c overrides this via weak linkage and provides
+ * full frame assembly in the ISR context.
+ */
+void __attribute__((weak)) spi0_handler(void) {
     volatile uint32_t *spi = (volatile uint32_t *)RP2350B_SPI0_BASE;
 
     /* Read all available data from SPI0 RX FIFO */

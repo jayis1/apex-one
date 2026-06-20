@@ -208,6 +208,16 @@ static uint8_t rx_ring[RX_RING_SIZE];
 static volatile uint32_t rx_head = 0;  /* ISR writes here */
 static volatile uint32_t rx_tail = 0;  /* Protocol handler reads here */
 
+/* Note: SPI0 RX data is fed by the SPI0 ISR (see spi0_isr.c) into the
+ * ISR-level ring buffer (spi_rx_buf/spi_rx_head/spi_rx_tail). The
+ * protocol handler drains bytes from that buffer in spi_protocol_process().
+ * TX response data is written to the local tx_ring buffer and read by the
+ * ISR during SPI transactions.
+ *
+ * The SPI0 ISR does NOT use the tx_ring/tx_head/tx_tail defined here;
+ * responses are sent by the host polling the SPI bus or via INT_REQ
+ * assertion followed by the host initiating a transfer. */
+
 /* TX Response Ring Buffer (protocol handler writes, SPI0 ISR reads) */
 #define TX_RING_SIZE  4096
 static uint8_t tx_ring[TX_RING_SIZE];
@@ -271,10 +281,10 @@ static struct {
     bool     nfc_active;           /* NFC polling active */
     bool     nfc_tag_present;      /* NFC tag detected */
     uint32_t uptime_ms;            /* System uptime counter */
-    uint16_t last_rssi_dbm_x10;   /* Last SDR RSSI */
+    int16_t  last_rssi_dbm_x10;   /* Last SDR RSSI (signed dBm × 10) */
     uint16_t last_vbat_mv;         /* Last battery voltage */
-    uint16_t last_temp_c_x10;      /* Last die temperature */
-    uint16_t last_cc_rssi_x10;     /* Last CC1101 RSSI */
+    int16_t  last_temp_c_x10;      /* Last die temperature (signed °C × 10) */
+    int16_t  last_cc_rssi_x10;     /* Last CC1101 RSSI (signed dBm × 10) */
     uint16_t last_nfc_field_mv;    /* Last NFC field strength */
 } device_state;
 
@@ -532,12 +542,21 @@ static void handle_cmd_cc1101_cfg(const uint8_t *payload, uint16_t len) {
 
     cfg = (struct cc1101_cfg_cmd *)payload;
 
-    /* Validate register address range (0x00-0x2E config, 0x30-0x3D command/status) */
-    if (cfg->reg_addr > 0x3D)
+    /* Validate register address range (0x00-0x2E config, 0x30-0x3D command/status).
+     * Address 0x2F is reserved/invalid on CC1101. */
+    if (cfg->reg_addr > 0x3D || cfg->reg_addr == 0x2F)
         return;
 
     /* Validate reg_len does not exceed remaining payload */
     if (len < (uint16_t)(2 + cfg->reg_len))
+        return;
+
+    /* Prevent burst write from wrapping past the register space boundary.
+     * CC1101 burst writes auto-increment the address, so we must ensure
+     * reg_addr + reg_len stays within a valid range. */
+    if (cfg->reg_addr <= 0x2E && (uint16_t)cfg->reg_addr + cfg->reg_len > 0x2F)
+        return;
+    if (cfg->reg_addr >= 0x30 && (uint16_t)cfg->reg_addr + cfg->reg_len > 0x3E)
         return;
 
     apex_cc1101_write_burst(cfg->reg_addr, cfg->data, cfg->reg_len);
@@ -684,11 +703,13 @@ static void dispatch_frame(void) {
 void spi_protocol_send_telemetry(void) {
     struct telemetry_payload telem;
 
-    /* Populate telemetry from device state */
-    telem.rssi_dbm_x10   = device_state.last_rssi_dbm_x10;
-    telem.temp_c_x10     = device_state.last_temp_c_x10;
+    /* Populate telemetry from device state.
+     * Signed values (RSSI, temperature) are cast to their wire format
+     * as uint16_t for transport; the host driver interprets them as int16_t. */
+    telem.rssi_dbm_x10   = (uint16_t)device_state.last_rssi_dbm_x10;
+    telem.temp_c_x10     = (uint16_t)device_state.last_temp_c_x10;
     telem.vbat_mv        = device_state.last_vbat_mv;
-    telem.cc1101_rssi_x10 = device_state.last_cc_rssi_x10;
+    telem.cc1101_rssi_x10 = (uint16_t)device_state.last_cc_rssi_x10;
     telem.nfc_field_mv   = device_state.last_nfc_field_mv;
 
     telem.flags = 0;

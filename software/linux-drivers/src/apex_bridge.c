@@ -1,8 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * apex_bridge.c — Linux Kernel Driver for GhostBlade SPI Bridge
  *
  * Copyright (C) 2026 GhostBlade Project
- * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * This driver implements a character device interface for the SPI bridge
  * between the RK3576 SoC (Linux host) and the RP2350B coprocessor (MCU).
@@ -604,12 +604,12 @@ static ssize_t apex_bridge_read(struct file *filp, char __user *buf,
 
     if (copy_to_user(buf, kbuf, copied)) {
         /* Zero kernel buffer before freeing to avoid leaking protocol data */
-        kzfree(kbuf);
+        kfree_sensitive(kbuf);
         return -EFAULT;
     }
 
     /* Wipe kernel buffer that may contain protocol/sensor data */
-    kzfree(kbuf);
+    kfree_sensitive(kbuf);
     return copied;
 }
 
@@ -1081,6 +1081,9 @@ static ssize_t rssi_dbm_x10_show(struct device *dev,
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     uint16_t val;
 
+    if (!adev)
+        return -ENODEV;
+
     spin_lock(&adev->rx_lock);
     val = adev->last_telem.rssi_dbm_x10;
     spin_unlock(&adev->rx_lock);
@@ -1094,6 +1097,9 @@ static ssize_t temp_c_x10_show(struct device *dev,
 {
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     uint16_t val;
+
+    if (!adev)
+        return -ENODEV;
 
     spin_lock(&adev->rx_lock);
     val = adev->last_telem.temp_c_x10;
@@ -1109,6 +1115,9 @@ static ssize_t vbat_mv_show(struct device *dev,
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     uint16_t val;
 
+    if (!adev)
+        return -ENODEV;
+
     spin_lock(&adev->rx_lock);
     val = adev->last_telem.vbat_mv;
     spin_unlock(&adev->rx_lock);
@@ -1122,6 +1131,9 @@ static ssize_t cc1101_rssi_x10_show(struct device *dev,
 {
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     uint16_t val;
+
+    if (!adev)
+        return -ENODEV;
 
     spin_lock(&adev->rx_lock);
     val = adev->last_telem.cc1101_rssi_x10;
@@ -1137,6 +1149,9 @@ static ssize_t nfc_field_mv_show(struct device *dev,
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     uint16_t val;
 
+    if (!adev)
+        return -ENODEV;
+
     spin_lock(&adev->rx_lock);
     val = adev->last_telem.nfc_field_mv;
     spin_unlock(&adev->rx_lock);
@@ -1150,6 +1165,9 @@ static ssize_t mcu_flags_show(struct device *dev,
 {
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     uint16_t val;
+
+    if (!adev)
+        return -ENODEV;
 
     spin_lock(&adev->rx_lock);
     val = adev->last_telem.flags;
@@ -1165,6 +1183,9 @@ static ssize_t uptime_ms_show(struct device *dev,
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     uint32_t val;
 
+    if (!adev)
+        return -ENODEV;
+
     spin_lock(&adev->rx_lock);
     val = adev->last_telem.uptime_ms;
     spin_unlock(&adev->rx_lock);
@@ -1178,6 +1199,9 @@ static ssize_t driver_status_show(struct device *dev,
 {
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     uint32_t status = 0;
+
+    if (!adev)
+        return -ENODEV;
 
     if (test_bit(APEX_FLAG_MCU_READY, &adev->flags))
         status |= BIT(0);
@@ -1195,6 +1219,9 @@ static ssize_t spi_errors_show(struct device *dev,
 {
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
 
+    if (!adev)
+        return -ENODEV;
+
     return sprintf(buf, "%u\n", atomic_read(&adev->spi_err_count));
 }
 static DEVICE_ATTR_RO(spi_errors);
@@ -1204,6 +1231,9 @@ static ssize_t rx_fifo_count_show(struct device *dev,
 {
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     unsigned int count;
+
+    if (!adev)
+        return -ENODEV;
 
     spin_lock(&adev->rx_lock);
     count = kfifo_len(&adev->rx_fifo);
@@ -1219,6 +1249,9 @@ static ssize_t tx_fifo_count_show(struct device *dev,
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     unsigned int count;
 
+    if (!adev)
+        return -ENODEV;
+
     spin_lock(&adev->tx_lock);
     count = kfifo_len(&adev->tx_fifo);
     spin_unlock(&adev->tx_lock);
@@ -1226,6 +1259,22 @@ static ssize_t tx_fifo_count_show(struct device *dev,
     return sprintf(buf, "%u\n", count);
 }
 static DEVICE_ATTR_RO(tx_fifo_count);
+
+static ssize_t brownout_count_show(struct device *dev,
+                                    struct device_attribute *attr, char *buf)
+{
+    struct apex_bridge_dev *adev = dev_get_drvdata(dev);
+
+    if (!adev)
+        return -ENODEV;
+
+    /* Brownout is tracked via the MCU_FLAGS_LOW_BATTERY bit in telemetry.
+     * Count the number of times we've observed the flag newly set. */
+    return sprintf(buf, "%u\n",
+                   (adev->last_telem.flags & cpu_to_le16(APEX_FLAG_LOW_BATTERY))
+                   ? 1 : 0);
+}
+static DEVICE_ATTR_RO(brownout_count);
 
 /* ── Scatter-Gather DMA sysfs attributes ──────────────────────────────────── */
 
@@ -1236,9 +1285,12 @@ static ssize_t sg_state_show(struct device *dev,
     const char *state_str;
     enum apex_sg_state state;
 
-    mutex_lock(&adev->sg_lock);
+    if (!adev)
+        return -ENODEV;
+
+    mutex_lock(&adev->sg_engine.sg_lock);
     state = adev->sg_engine.state;
-    mutex_unlock(&adev->sg_lock);
+    mutex_unlock(&adev->sg_engine.sg_lock);
 
     switch (state) {
     case APEX_SG_STATE_IDLE:
@@ -1265,9 +1317,12 @@ static ssize_t sg_total_bytes_show(struct device *dev,
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     u64 total_transferred;
 
-    mutex_lock(&adev->sg_lock);
+    if (!adev)
+        return -ENODEV;
+
+    mutex_lock(&adev->sg_engine.sg_lock);
     total_transferred = adev->sg_engine.total_transferred;
-    mutex_unlock(&adev->sg_lock);
+    mutex_unlock(&adev->sg_engine.sg_lock);
 
     return sprintf(buf, "%llu\n", total_transferred);
 }
@@ -1279,9 +1334,12 @@ static ssize_t sg_overruns_show(struct device *dev,
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     unsigned int overruns;
 
-    mutex_lock(&adev->sg_lock);
+    if (!adev)
+        return -ENODEV;
+
+    mutex_lock(&adev->sg_engine.sg_lock);
     overruns = adev->sg_engine.overruns;
-    mutex_unlock(&adev->sg_lock);
+    mutex_unlock(&adev->sg_engine.sg_lock);
 
     return sprintf(buf, "%u\n", overruns);
 }
@@ -1293,9 +1351,12 @@ static ssize_t sg_errors_show(struct device *dev,
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     unsigned int errors;
 
-    mutex_lock(&adev->sg_lock);
+    if (!adev)
+        return -ENODEV;
+
+    mutex_lock(&adev->sg_engine.sg_lock);
     errors = adev->sg_engine.errors;
-    mutex_unlock(&adev->sg_lock);
+    mutex_unlock(&adev->sg_engine.sg_lock);
 
     return sprintf(buf, "%u\n", errors);
 }
@@ -1307,9 +1368,12 @@ static ssize_t sg_frames_rx_show(struct device *dev,
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
     unsigned int frames_rx;
 
-    mutex_lock(&adev->sg_lock);
+    if (!adev)
+        return -ENODEV;
+
+    mutex_lock(&adev->sg_engine.sg_lock);
     frames_rx = adev->sg_engine.frames_rx;
-    mutex_unlock(&adev->sg_lock);
+    mutex_unlock(&adev->sg_engine.sg_lock);
 
     return sprintf(buf, "%u\n", frames_rx);
 }
@@ -1319,6 +1383,10 @@ static ssize_t sg_buf_count_show(struct device *dev,
                                    struct device_attribute *attr, char *buf)
 {
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
+
+    if (!adev)
+        return -ENODEV;
+
     return sprintf(buf, "%u\n", adev->sg_engine.buf_count);
 }
 static DEVICE_ATTR_RO(sg_buf_count);
@@ -1327,6 +1395,10 @@ static ssize_t sg_buf_size_show(struct device *dev,
                                   struct device_attribute *attr, char *buf)
 {
     struct apex_bridge_dev *adev = dev_get_drvdata(dev);
+
+    if (!adev)
+        return -ENODEV;
+
     return sprintf(buf, "%u\n", adev->sg_engine.buf_size);
 }
 static DEVICE_ATTR_RO(sg_buf_size);
@@ -1343,6 +1415,7 @@ static struct attribute *apex_bridge_attrs[] = {
     &dev_attr_spi_errors.attr,
     &dev_attr_rx_fifo_count.attr,
     &dev_attr_tx_fifo_count.attr,
+    &dev_attr_brownout_count.attr,
     /* Scatter-gather DMA attributes */
     &dev_attr_sg_state.attr,
     &dev_attr_sg_total_bytes.attr,
@@ -1808,62 +1881,46 @@ static int apex_bridge_mmap(struct file *filp, struct vm_area_struct *vma)
      */
     vma->vm_flags |= VM_DONTEXPAND | VM_IO;
 
-    /* Use dma_mmap_coherent for proper DMA buffer mapping.
-     * This handles cache attributes correctly for DMA-coherent memory
-     * and avoids the incorrect use of virt_to_page()/remap_pfn_range()
-     * on DMA-allocated buffers.
+    /* Use remap_pfn_range() per buffer to map DMA-coherent memory.
+     * This avoids the dangerous practice of modifying vma->vm_start/vm_end
+     * which can corrupt the kernel VMA subsystem on certain kernel versions.
+     * Each buffer is mapped as a separate page range within the VMA.
      */
     vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
-    /* WARNING: Modifying vma->vm_start/vm_end is a dangerous practice that
-     * can cause kernel VM subsystem corruption in some kernel versions.
-     * This code saves/restores the original values to minimize risk, but
-     * a more robust approach would be to use remap_pfn_range() with
-     * dma_to_phys() for each page, or implement a vm_operations_struct
-     * with a .fault handler. See kernel documentation at
-     * Documentation/driver-api/driver-model/dma-mapping.rst.
-     *
-     * TODO: Refactor to avoid modifying VMA fields directly. Use
-     * remap_pfn_range() or implement vm_ops->fault() instead.
-     */
     {
-        unsigned long orig_vm_start = vma->vm_start;
-        unsigned long orig_vm_end = vma->vm_end;
-        unsigned long vm_pgoff_orig = vma->vm_pgoff;
         uint32_t i;
-        unsigned long offset = 0;
+        unsigned long vma_offset = 0;
 
-        for (i = 0; i < eng->buf_count && offset < vsize; i++) {
+        for (i = 0; i < eng->buf_count && vma_offset < vsize; i++) {
             unsigned long buf_vsize = eng->buf_size;
+            unsigned long phys_addr;
+            unsigned long pfn;
+            unsigned long map_size;
 
             /* Truncate last buffer mapping if vsize doesn't cover all buffers */
-            if (offset + buf_vsize > vsize)
-                buf_vsize = vsize - offset;
+            if (vma_offset + buf_vsize > vsize)
+                buf_vsize = vsize - vma_offset;
 
-            /* Restore VMA start/end for each buffer mapping */
-            vma->vm_start = orig_vm_start + offset;
-            vma->vm_end = vma->vm_start + buf_vsize;
-            vma->vm_pgoff = vm_pgoff_orig + (offset >> PAGE_SHIFT);
+            /* Round mapping size up to page boundary */
+            map_size = PAGE_ALIGN(buf_vsize);
+            if (vma_offset + map_size > vsize)
+                map_size = vsize - vma_offset;
 
-            ret = dma_mmap_coherent(&dev->spi->dev, vma,
-                                     eng->bufs[i].dma_virt,
-                                     eng->bufs[i].dma_phys,
-                                     buf_vsize);
-            if (ret) {
-                /* Restore VMA on failure */
-                vma->vm_start = orig_vm_start;
-                vma->vm_end = orig_vm_end;
-                vma->vm_pgoff = vm_pgoff_orig;
+            /* Get physical address of DMA buffer and map it */
+            phys_addr = eng->bufs[i].dma_phys;
+            pfn = __phys_to_pfn(phys_addr);
+
+            ret = remap_pfn_range(vma,
+                                  vma->vm_start + vma_offset,
+                                  pfn,
+                                  map_size,
+                                  vma->vm_page_prot);
+            if (ret)
                 return ret;
-            }
 
-            offset += buf_vsize;
+            vma_offset += buf_vsize;
         }
-
-        /* Restore original VMA boundaries */
-        vma->vm_start = orig_vm_start;
-        vma->vm_end = orig_vm_end;
-        vma->vm_pgoff = vm_pgoff_orig;
     }
 
     return 0;
