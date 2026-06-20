@@ -901,3 +901,123 @@ int cc1101_set_band(int band) {
 
     return 0;
 }
+
+/* ========================================================================
+ * CC1101 FIFO Status and Packet Status
+ * ======================================================================== */
+
+/**
+ * cc1101_get_rx_bytes — Get number of bytes in the RX FIFO
+ *
+ * Reads the RXBYTES status register. Bit 7 indicates RX FIFO overflow;
+ * bits 6:0 give the number of bytes available.
+ *
+ * Returns: RXBYTES register value (bit 7 = overflow, bits 6:0 = count)
+ */
+uint8_t cc1101_get_rx_bytes(void) {
+    return cc1101_read_status(CC1101_RXBYTES);
+}
+
+/**
+ * cc1101_get_tx_bytes — Get number of bytes in the TX FIFO
+ *
+ * Reads the TXBYTES status register. Bit 7 indicates TX FIFO underflow;
+ * bits 6:0 give the number of bytes pending transmission.
+ *
+ * Returns: TXBYTES register value (bit 7 = underflow, bits 6:0 = count)
+ */
+uint8_t cc1101_get_tx_bytes(void) {
+    return cc1101_read_status(CC1101_TXBYTES);
+}
+
+/**
+ * cc1101_get_pkt_status — Read the PKTSTATUS status register
+ *
+ * Returns the PKTSTATUS register containing GDO0/GDO2 pin states
+ * and CRC/LQI indicators from the last received packet.
+ *
+ * Returns: PKTSTATUS register value
+ */
+uint8_t cc1101_get_pkt_status(void) {
+    return cc1101_read_status(CC1101_PKTSTATUS);
+}
+
+/**
+ * cc1101_get_lqi — Read the Link Quality Index from the last received packet
+ *
+ * Bit 7 is the CRC_OK flag; bits 6:0 contain the LQI metric (0-127,
+ * higher is better).
+ *
+ * Returns: LQI register value
+ */
+uint8_t cc1101_get_lqi(void) {
+    return cc1101_read_status(CC1101_LQI);
+}
+
+/**
+ * cc1101_set_sync_word — Configure the CC1101 sync word for packet filtering
+ *
+ * @sync_hi: High byte of the 16-bit sync word
+ * @sync_lo: Low byte of the 16-bit sync word
+ *
+ * Writes SYNC1 and SYNC0 registers. The CC1101 uses this 16-bit value
+ * for packet synchronization filtering. Default is 0xD9 0x0A.
+ * The CC1101 must be in IDLE state when changing the sync word.
+ */
+void cc1101_set_sync_word(uint8_t sync_hi, uint8_t sync_lo) {
+    cc1101_write_reg(CC1101_SYNC1, sync_hi);
+    cc1101_write_reg(CC1101_SYNC0, sync_lo);
+}
+
+/**
+ * cc1101_set_tx_power — Set the CC1101 TX output power level
+ *
+ * @power_dbm: Desired output power in dBm.
+ *             Supported values: -30, -20, -15, -10, 0, 5, 7, 10
+ *
+ * Maps dBm value to the corresponding PATABLE entry for 868 MHz operation
+ * (per CC1101 datasheet Table 35). Only PATABLE index 0 is programmed;
+ * the other 7 entries retain their previous values (default 0x60 = 0 dBm).
+ *
+ * The CC1101 must be in IDLE or RX state when changing PATABLE.
+ */
+void cc1101_set_tx_power(int8_t power_dbm) {
+    uint8_t pa_val;
+
+    /* Map dBm to PATABLE value for 868 MHz (CC1101 datasheet Table 35) */
+    if (power_dbm <= -30)       pa_val = 0x03;  /* -30 dBm */
+    else if (power_dbm <= -20)  pa_val = 0x17;  /* -20 dBm */
+    else if (power_dbm <= -15)  pa_val = 0x1D;  /* -15 dBm */
+    else if (power_dbm <= -10)  pa_val = 0x26;  /* -10 dBm */
+    else if (power_dbm <= 0)    pa_val = 0x50;  /* 0 dBm */
+    else if (power_dbm <= 5)    pa_val = 0x86;  /* +5 dBm */
+    else if (power_dbm <= 7)    pa_val = 0xA0;  /* +7 dBm */
+    else                        pa_val = 0xC0;  /* +10 dBm */
+
+    /* Write PATABLE index 0 only (single write) */
+    apex_cc1101_cs_assert();
+    apex_cc1101_spi_xfer(CC1101_WRITE_SINGLE(CC1101_PATABLE));
+    apex_cc1101_spi_xfer(pa_val);
+    apex_cc1101_cs_release();
+}
+
+/**
+ * cc1101_read_config_reg — Read a CC1101 configuration or status register
+ *
+ * @addr: Register address (0x00–0x2E for config, 0x30–0x3D for status)
+ *
+ * For configuration registers (0x00-0x2E), uses a single read.
+ * For status registers (0x30-0x3D), uses a status register read.
+ *
+ * Returns: Register value, or 0xFF if address is out of range
+ */
+uint8_t cc1101_read_config_reg(uint8_t addr) {
+    if (addr <= 0x2E) {
+        /* Configuration register — single read */
+        return cc1101_read_reg(addr);
+    } else if (addr >= 0x30 && addr <= 0x3D) {
+        /* Status register */
+        return cc1101_read_status(addr);
+    }
+    return 0xFF;  /* Invalid address */
+}

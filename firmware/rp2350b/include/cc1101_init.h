@@ -215,10 +215,109 @@ uint8_t cc1101_get_partnum(void);
  */
 uint8_t cc1101_get_version(void);
 
+/**
+ * cc1101_get_rx_bytes — Get number of bytes in the RX FIFO
+ *
+ * Reads the RXBYTES status register. The upper bit (OVERFLOW) indicates
+ * that the RX FIFO has overflowed; the lower 7 bits give the byte count.
+ *
+ * Returns: RXBYTES register value (bit 7 = overflow, bits 6:0 = count)
+ */
+uint8_t cc1101_get_rx_bytes(void);
+
+/**
+ * cc1101_get_tx_bytes — Get number of bytes in the TX FIFO
+ *
+ * Reads the TXBYTES status register. The upper bit (UNDERFLOW) indicates
+ * that the TX FIFO has underflowed; the lower 7 bits give the byte count.
+ *
+ * Returns: TXBYTES register value (bit 7 = underflow, bits 6:0 = count)
+ */
+uint8_t cc1101_get_tx_bytes(void);
+
+/**
+ * cc1101_get_pkt_status — Read the PKTSTATUS status register
+ *
+ * Returns the PKTSTATUS register which contains GDO0, GDO2 states
+ * and CRC/LQI status bits from the last received packet.
+ *
+ * Returns: PKTSTATUS register value
+ */
+uint8_t cc1101_get_pkt_status(void);
+
+/**
+ * cc1101_get_lqi — Read the Link Quality Index from the last received packet
+ *
+ * The LQI is a metric of the demodulator's confidence in the received
+ * signal quality. Range: 0–127 (higher is better). Bit 7 is the CRC_OK
+ * flag; bits 6:0 are the LQI value.
+ *
+ * Returns: LQI register value (bit 7 = CRC_OK, bits 6:0 = LQI)
+ */
+uint8_t cc1101_get_lqi(void);
+
+/**
+ * cc1101_set_sync_word — Configure the CC1101 sync word for packet filtering
+ *
+ * @sync_hi: High byte of the 16-bit sync word
+ * @sync_lo: Low byte of the 16-bit sync word
+ *
+ * The sync word is used for packet address filtering. The default is
+ * 0xD9 0x0A (SmartRF Studio default for GFSK). Set both bytes to the
+ * desired sync word. The receiver will reject packets that do not match.
+ */
+void cc1101_set_sync_word(uint8_t sync_hi, uint8_t sync_lo);
+
+/**
+ * cc1101_set_tx_power — Set the CC1101 TX output power level
+ *
+ * @power_dbm: Desired output power in dBm. The PATABLE is programmed
+ *             with the corresponding register value.
+ *             Supported: -30, -20, -15, -10, 0, 5, 7, 10 (dBm)
+ *
+ * This function rewrites PATABLE index 0 with the value corresponding
+ * to the requested power level. The CC1101 must be in IDLE or RX
+ * state when changing PATABLE.
+ */
+void cc1101_set_tx_power(int8_t power_dbm);
+
+/**
+ * cc1101_read_config_reg — Read a CC1101 configuration register
+ *
+ * @addr: Register address (0x00–0x2E for config, 0x30–0x3D for status)
+ *
+ * Returns: Register value
+ */
+uint8_t cc1101_read_config_reg(uint8_t addr);
+
 /* ── CC1101 band identifiers ────────────────────────────────────────────── */
 
 #define CC1101_BAND_433  0    /**< 433 MHz ISM band (EU 433.05–434.79 MHz) */
 #define CC1101_BAND_868  1    /**< 868 MHz ISM band (EU 863–870 MHz) */
 #define CC1101_BAND_915  2    /**< 915 MHz ISM band (US 902–928 MHz) */
+
+/* ── CC1101 PKTSTATUS bit definitions ──────────────────────────────────── */
+
+#define CC1101_PKTSTATUS_CRC_OK    (1 << 7)  /**< CRC passed on last packet */
+#define CC1101_PKTSTATUS_LQI_OK    (1 << 6)  /**< LQI above threshold */
+#define CC1101_PKTSTATUS_GDO0      (1 << 5)  /**< GDO0 pin state */
+#define CC1101_PKTSTATUS_GDO2      (1 << 4)  /**< GDO2 pin state */
+
+/* ── CC1101 TX power table (868 MHz, from datasheet Table 35) ───────────── */
+
+/** CC1101 TX power level definitions for cc1101_set_tx_power() */
+#define CC1101_POWER_MINUS_30_DBM   (-30)
+#define CC1101_POWER_MINUS_20_DBM   (-20)
+#define CC1101_POWER_MINUS_15_DBM   (-15)
+#define CC1101_POWER_MINUS_10_DBM   (-10)
+#define CC1101_POWER_0_DBM          (0)
+#define CC1101_POWER_PLUS_5_DBM     (5)
+#define CC1101_POWER_PLUS_7_DBM     (7)
+#define CC1101_POWER_PLUS_10_DBM    (10)
+
+/* ── CC1101 FIFO overflow/underflow flags ───────────────────────────────── */
+
+#define CC1101_RXBYTES_OVERFLOW     (1 << 7)  /**< RX FIFO overflow flag */
+#define CC1101_TXBYTES_UNDERFLOW    (1 << 7)  /**< TX FIFO underflow flag */
 
 #endif /* CC1101_INIT_H */

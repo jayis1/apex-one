@@ -363,6 +363,145 @@ pyapex_device_battery_percent(PyApexDeviceObject *self, PyObject *Py_UNUSED(igno
     return PyLong_FromUnsignedLong(apex_battery_percent(telem.vbat_mv));
 }
 
+static PyObject *
+pyapex_device_cc1101_read(PyApexDeviceObject *self, PyObject *args)
+{
+    uint8_t reg_addr;
+    uint8_t reg_len;
+    apex_cc1101_config_t cfg;
+    int ret;
+
+    if (!self->handle) {
+        PyErr_SetString(PyExc_RuntimeError, "Device not open");
+        return NULL;
+    }
+
+    if (!PyArg_ParseTuple(args, "BB", &reg_addr, &reg_len))
+        return NULL;
+
+    if (reg_len == 0 || reg_len > 64) {
+        PyErr_SetString(PyExc_ValueError, "Register length must be 1-64");
+        return NULL;
+    }
+
+    cfg.reg_addr = reg_addr;
+    cfg.reg_len = reg_len;
+    ret = apex_cc1101_read_regs(self->handle, &cfg);
+    if (ret != APEX_OK) {
+        PyErr_SetString(PyExc_IOError, apex_strerror(ret));
+        return NULL;
+    }
+
+    return PyBytes_FromStringAndSize((const char *)cfg.data, cfg.reg_len);
+}
+
+static PyObject *
+pyapex_device_cc1101_set_band(PyApexDeviceObject *self, PyObject *args)
+{
+    int band;
+    int ret;
+
+    if (!self->handle) {
+        PyErr_SetString(PyExc_RuntimeError, "Device not open");
+        return NULL;
+    }
+
+    if (!PyArg_ParseTuple(args, "i", &band))
+        return NULL;
+
+    ret = apex_cc1101_set_band(self->handle, band);
+    if (ret != APEX_OK) {
+        PyErr_SetString(PyExc_IOError, apex_strerror(ret));
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
+static PyObject *
+pyapex_device_sdr_read_iq(PyApexDeviceObject *self, PyObject *args)
+{
+    Py_ssize_t buf_len;
+    size_t samples_read = 0;
+    uint8_t *buf;
+    int ret;
+
+    if (!self->handle) {
+        PyErr_SetString(PyExc_RuntimeError, "Device not open");
+        return NULL;
+    }
+
+    if (!PyArg_ParseTuple(args, "n", &buf_len))
+        return NULL;
+
+    if (buf_len <= 0 || buf_len > 65536) {
+        PyErr_SetString(PyExc_ValueError, "Buffer size must be 1-65536");
+        return NULL;
+    }
+
+    buf = (uint8_t *)malloc(buf_len);
+    if (!buf) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+
+    ret = apex_sdr_read_iq(self->handle, buf, (size_t)buf_len, &samples_read);
+    if (ret != APEX_OK) {
+        free(buf);
+        PyErr_SetString(PyExc_IOError, apex_strerror(ret));
+        return NULL;
+    }
+
+    PyObject *result = PyBytes_FromStringAndSize((const char *)buf, samples_read);
+    free(buf);
+    return result;
+}
+
+static PyObject *
+pyapex_device_nfc_poll(PyApexDeviceObject *self, PyObject *args)
+{
+    uint32_t timeout_ms = 0;
+    int ret;
+
+    if (!self->handle) {
+        PyErr_SetString(PyExc_RuntimeError, "Device not open");
+        return NULL;
+    }
+
+    if (!PyArg_ParseTuple(args, "|I", &timeout_ms))
+        return NULL;
+
+    ret = apex_nfc_poll(self->handle, timeout_ms);
+    if (ret == APEX_OK) {
+        Py_RETURN_TRUE;
+    } else if (ret == APEX_ERR_TIMEOUT) {
+        Py_RETURN_FALSE;
+    } else {
+        PyErr_SetString(PyExc_IOError, apex_strerror(ret));
+        return NULL;
+    }
+}
+
+static PyObject *
+pyapex_device_get_firmware_version(PyApexDeviceObject *self, PyObject *Py_UNUSED(ignored))
+{
+    char version[64];
+    int ret;
+
+    if (!self->handle) {
+        PyErr_SetString(PyExc_RuntimeError, "Device not open");
+        return NULL;
+    }
+
+    ret = apex_get_firmware_version(self->handle, version, sizeof(version));
+    if (ret != APEX_OK) {
+        PyErr_SetString(PyExc_IOError, apex_strerror(ret));
+        return NULL;
+    }
+
+    return PyUnicode_FromString(version);
+}
+
 /* ========================================================================
  * ApexDevice Type Definition
  * ======================================================================== */
@@ -372,13 +511,18 @@ static PyMethodDef pyapex_device_methods[] = {
     {"sdr_tune",           (PyCFunction)pyapex_device_sdr_tune,          METH_VARARGS, "Tune SDR: sdr_tune(freq_hz, bw_khz, gain_db)"},
     {"sdr_stream_start",   (PyCFunction)pyapex_device_sdr_stream_start,  METH_NOARGS,  "Start SDR IQ streaming"},
     {"sdr_stream_stop",    (PyCFunction)pyapex_device_sdr_stream_stop,   METH_NOARGS,  "Stop SDR IQ streaming"},
+    {"sdr_read_iq",       (PyCFunction)pyapex_device_sdr_read_iq,      METH_VARARGS, "Read IQ samples: sdr_read_iq(buf_len)"},
     {"ant_select",         (PyCFunction)pyapex_device_ant_select,        METH_VARARGS, "Select antenna: ant_select(ant_id)"},
     {"cc1101_write",       (PyCFunction)pyapex_device_cc1101_write,      METH_VARARGS, "Write CC1101 regs: cc1101_write(addr, data)"},
+    {"cc1101_read",       (PyCFunction)pyapex_device_cc1101_read,       METH_VARARGS, "Read CC1101 regs: cc1101_read(addr, len)"},
     {"cc1101_set_channel", (PyCFunction)pyapex_device_cc1101_set_channel, METH_VARARGS, "Set CC1101 channel: cc1101_set_channel(ch)"},
     {"cc1101_set_power",   (PyCFunction)pyapex_device_cc1101_set_power,  METH_VARARGS, "Set CC1101 TX power: cc1101_set_power(dbm)"},
+    {"cc1101_set_band",    (PyCFunction)pyapex_device_cc1101_set_band,   METH_VARARGS, "Set CC1101 band (0=433,1=868,2=915): cc1101_set_band(band)"},
     {"nfc_transact",       (PyCFunction)pyapex_device_nfc_transact,      METH_VARARGS, "NFC transaction: nfc_transact(cmd, flags, data)"},
+    {"nfc_poll",           (PyCFunction)pyapex_device_nfc_poll,          METH_VARARGS, "Poll for NFC tag: nfc_poll([timeout_ms])"},
     {"get_telemetry",      (PyCFunction)pyapex_device_get_telemetry,     METH_NOARGS,  "Read telemetry dict"},
     {"get_status",         (PyCFunction)pyapex_device_get_status,        METH_NOARGS,  "Read device status dict"},
+    {"get_firmware_version", (PyCFunction)pyapex_device_get_firmware_version, METH_NOARGS, "Read firmware version string"},
     {"mcu_reset",          (PyCFunction)pyapex_device_mcu_reset,       METH_VARARGS, "MCU reset: mcu_reset(assert)"},
     {"battery_percent",    (PyCFunction)pyapex_device_battery_percent,  METH_NOARGS,  "Get battery charge estimate (0-100)"},
     {NULL, NULL, 0, NULL}
@@ -489,6 +633,12 @@ PyMODINIT_FUNC PyInit_pyapex(void)
     PyModule_AddIntConstant(m, "ERR_TIMEOUT",    APEX_ERR_TIMEOUT);
     PyModule_AddIntConstant(m, "ERR_COMM",       APEX_ERR_COMM);
     PyModule_AddIntConstant(m, "ERR_NOT_READY",  APEX_ERR_NOT_READY);
+    PyModule_AddIntConstant(m, "ERR_NOMEM",      APEX_ERR_NOMEM);
+
+    /* CC1101 band constants */
+    PyModule_AddIntConstant(m, "CC1101_BAND_433", 0);
+    PyModule_AddIntConstant(m, "CC1101_BAND_868", 1);
+    PyModule_AddIntConstant(m, "CC1101_BAND_915", 2);
 
     PyModule_AddStringConstant(m, "VERSION", LIBAPEX_VERSION_STRING);
 

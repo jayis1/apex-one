@@ -325,6 +325,73 @@ int apex_get_status(apex_handle_t handle, apex_status_t *status);
  */
 int apex_mcu_reset(apex_handle_t handle, bool assert);
 
+/**
+ * apex_cc1101_read_regs — Read consecutive CC1101 registers
+ *
+ * @handle:   Device handle
+ * @cfg:      Register configuration (address, length; data filled on output)
+ *
+ * On input, cfg->reg_addr and cfg->reg_len specify which registers to read.
+ * On output, cfg->data is filled with the register values.
+ *
+ * Returns: APEX_OK on success
+ */
+int apex_cc1101_read_regs(apex_handle_t handle, apex_cc1101_config_t *cfg);
+
+/**
+ * apex_cc1101_set_band — Switch the CC1101 to a different ISM band
+ *
+ * @handle: Device handle
+ * @band:  Band identifier (0=433 MHz, 1=868 MHz, 2=915 MHz)
+ *
+ * Performs a full re-initialization: IDLE, flush FIFOs, write the
+ * configuration table for the selected band, calibrate, and verify.
+ *
+ * Returns: APEX_OK on success
+ */
+int apex_cc1101_set_band(apex_handle_t handle, int band);
+
+/**
+ * apex_sdr_read_iq — Read IQ samples from the SDR stream buffer
+ *
+ * @handle:     Device handle
+ * @buf:        Output buffer for IQ sample data
+ * @buf_len:    Size of output buffer in bytes
+ * @samples_read: Output: number of bytes actually read
+ *
+ * Reads available IQ samples from the SDR stream. Each sample is 4 bytes:
+ * I(16-bit signed) + Q(16-bit signed), both in two's complement.
+ *
+ * Returns: APEX_OK on success
+ */
+int apex_sdr_read_iq(apex_handle_t handle, uint8_t *buf,
+                      size_t buf_len, size_t *samples_read);
+
+/**
+ * apex_nfc_poll — Poll for an NFC tag in the field
+ *
+ * @handle:  Device handle
+ * @timeout_ms: Timeout in milliseconds (0 = default 100 ms)
+ *
+ * Activates the NFC field, sends REQA, and waits for a tag response.
+ * Equivalent to calling apex_nfc_field_on() then checking for a response.
+ *
+ * Returns: APEX_OK if a tag was detected, APEX_ERR_TIMEOUT if no tag
+ */
+int apex_nfc_poll(apex_handle_t handle, uint32_t timeout_ms);
+
+/**
+ * apex_get_firmware_version — Read the MCU firmware version
+ *
+ * @handle: Device handle
+ * @version: Output: firmware version string (null-terminated)
+ * @buf_len: Size of the version buffer (at least 16 bytes recommended)
+ *
+ * Returns: APEX_OK on success
+ */
+int apex_get_firmware_version(apex_handle_t handle, char *version,
+                               size_t buf_len);
+
 /* ========================================================================
  * Convenience Functions
  * ======================================================================== */
