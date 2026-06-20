@@ -497,7 +497,6 @@ int st25r3916_transact(uint8_t cmd,
                        uint32_t timeout_ms) {
     uint8_t irq1 = 0, irq2 = 0, irq3 = 0;
     uint32_t timeout_count;
-    uint16_t rx_bytes = 0;
 
     /* Parameter validation */
     if ((tx_len > 0 && tx_data == NULL) ||
@@ -568,6 +567,7 @@ int st25r3916_transact(uint8_t cmd,
 
     /* Step 6: Read RX data from FIFO */
     if (rx_data != NULL && rx_len != NULL) {
+        uint16_t rx_bytes;
         /* Read number of received bytes */
         rx_bytes = (uint16_t)st25r3916_read_reg(ST25R3916_REG_NUM_RX_BYTES1) |
                    ((uint16_t)st25r3916_read_reg(ST25R3916_REG_NUM_RX_BYTES2) << 8);

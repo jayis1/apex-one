@@ -1,8 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * apex_bridge_regs.h — MMIO Register Definitions for GhostBlade SPI Bridge
  *
  * Copyright (C) 2026 GhostBlade Project
- * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * This header defines the memory-mapped I/O registers for the RK3576
  * SPI0 controller (base 0xFE610000), the GPIO1 bank used for bridge
