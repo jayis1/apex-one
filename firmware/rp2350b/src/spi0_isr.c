@@ -380,9 +380,14 @@ void spi0_handler(void) {
     if (spi0_tx.response_pending) {
         /* Write response bytes to SPI0 TX FIFO for full-duplex transfer.
          * The host will clock out the response during the next SPI
-         * transaction. We load up to 16 bytes (TX FIFO depth) at a time. */
+         * transaction. We load up to 16 bytes (TX FIFO depth) at a time.
+         *
+         * Limit the loop to TX FIFO depth (16 entries on RP2350B SSP)
+         * to prevent a stuck TNF bit from causing an infinite loop in
+         * the ISR. If TNF stays asserted beyond the FIFO size, the
+         * peripheral is malfunctioning and we bail out defensively. */
         uint16_t tx_pos = 0;
-        while (tx_pos < spi0_tx.len &&
+        while (tx_pos < spi0_tx.len && tx_pos < 16 &&
                (spi[SPI_SSPSR / 4] & SPI_SSPSR_TNF)) {
             spi[SPI_SSPDR / 4] = spi0_tx.buf[tx_pos++];
         }

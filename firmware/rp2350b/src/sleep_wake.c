@@ -58,6 +58,10 @@ void sleep_wake_init(void) {
  * check_spi_activity — Check if SPI bus has received new data
  *
  * Returns: true if new data arrived since last check
+ *
+ * Note: The static last_head variable is reset when transitioning
+ * to a sleep state, so wake events from pre-sleep activity are
+ * properly detected.
  */
 static bool check_spi_activity(void) {
     static uint32_t last_head = 0;
@@ -71,6 +75,19 @@ static bool check_spi_activity(void) {
 }
 
 /**
+ * reset_spi_activity_tracker — Reset the SPI activity tracker
+ *
+ * Called when entering a sleep state so that any new SPI activity
+ * upon waking triggers an immediate wake detection. Without this,
+ * pre-sleep SPI head values would mask the wake signal.
+ */
+static void reset_spi_activity_tracker(void) {
+    /* Re-read the current head position so that any new bytes
+     * received after this point will trigger activity detection. */
+    check_spi_activity();  /* Updates static last_head to current */
+}
+
+/**
  * enter_light_sleep — Transition to SLEEP_LIGHT
  *
  * Reduces CPU clock to 48 MHz and gates peripheral clocks.
@@ -80,6 +97,10 @@ static void enter_light_sleep(void) {
     /* Reduce system clock to 48 MHz for power savings.
      * SPI0 continues to operate at this frequency since it's
      * a slave peripheral clocked by the host. */
+
+    /* Reset activity tracker before sleeping so wake events are detected */
+    reset_spi_activity_tracker();
+
     set_sys_clock_48mhz();
 
     /* Keep SPI0, watchdog, and ADC clocks running.
@@ -112,6 +133,10 @@ static void enter_deep_sleep(void) {
     /* Already in light sleep (48 MHz); Core 1 may already be
      * paused by the SDR DMA idle detection. Signal Core 1 to
      * finish its current buffer and stop. */
+
+    /* Reset activity tracker before deep sleep */
+    reset_spi_activity_tracker();
+
     multicore_fifo_push_blocking(0xDEAD0000U);
 
     /* Further reduce clock — keep at 48 MHz but disable more

@@ -103,6 +103,10 @@
 #define SDR_RING_BLOCK_SIZE         512    /* Bytes per block (256 IQ pairs × 2 bytes) */
 #define SDR_RING_BUF_SIZE           (SDR_RING_NUM_BLOCKS * SDR_RING_BLOCK_SIZE)
 
+/* Ring buffer block count MUST be a power of 2 for correct modular arithmetic */
+_Static_assert((SDR_RING_NUM_BLOCKS & (SDR_RING_NUM_BLOCKS - 1)) == 0,
+               "SDR_RING_NUM_BLOCKS must be a power of 2");
+
 /* 4096 bytes total ring buffer, aligned to 4-byte boundary */
 static uint8_t sdr_ring_buf[SDR_RING_BUF_SIZE] __attribute__((aligned(4)));
 
@@ -312,6 +316,8 @@ int sdr_dma_start(void) {
  *
  * Halts the DMA engine and disables the DMA channel.
  * Any in-progress transfer is aborted.
+ * The ring buffer is securely wiped to prevent leakage of
+ * captured IQ samples through subsequent DMA or SRAM inspection.
  */
 void sdr_dma_stop(void) {
     dma_running = false;
@@ -324,9 +330,15 @@ void sdr_dma_stop(void) {
 
     /* Disable DMA interrupt */
     REG32(DMA_INTE0) &= ~(1 << 0);
-
     /* Clear pending interrupt */
     REG32(DMA_INTS0) = (1 << 0);
+
+    /* Securely wipe the ring buffer to prevent leakage of captured
+     * IQ samples through subsequent DMA transfers or SRAM inspection. */
+    volatile uint8_t *p = (volatile uint8_t *)sdr_ring_buf;
+    for (uint32_t i = 0; i < SDR_RING_BUF_SIZE; i++)
+        p[i] = 0;
+    sdr_dmb();
 }
 
 /**
@@ -346,10 +358,17 @@ const uint8_t *sdr_dma_get_block(uint8_t *block_idx, uint16_t *size) {
         return NULL;
     }
 
-    *block_idx = proto_read_block;
+    uint8_t idx = proto_read_block;
+    if (idx >= SDR_RING_NUM_BLOCKS) {
+        /* Defensive: should never happen, but prevent out-of-bounds access */
+        dma_stats.underruns++;
+        return NULL;
+    }
+
+    *block_idx = idx;
     *size = SDR_RING_BLOCK_SIZE;
 
-    return &sdr_ring_buf[proto_read_block * SDR_RING_BLOCK_SIZE];
+    return &sdr_ring_buf[idx * SDR_RING_BLOCK_SIZE];
 }
 
 /**

@@ -199,27 +199,34 @@ static uint32_t crc32_compute(const uint8_t *data, uint32_t len) {
     return crc ^ 0xFFFFFFFFUL;
 }
 
-/* ========================================================================
- * RX Ring Buffer (fed by SPI0 ISR)
- * ======================================================================== */
-
+/* TX Response Ring Buffer (protocol handler writes, SPI0 ISR reads)
+ *
+ * Both ring sizes MUST be powers of 2 for the masking arithmetic
+ * (head/tail wrapping) to work correctly. The _Static_assert
+ * constraints below enforce this at compile time.
+ */
 #define RX_RING_SIZE  8192
+#define TX_RING_SIZE  4096
+
+_Static_assert((RX_RING_SIZE & (RX_RING_SIZE - 1)) == 0,
+               "RX_RING_SIZE must be a power of 2");
+_Static_assert((TX_RING_SIZE & (TX_RING_SIZE - 1)) == 0,
+               "TX_RING_SIZE must be a power of 2");
+
 static uint8_t rx_ring[RX_RING_SIZE];
 static volatile uint32_t rx_head = 0;  /* ISR writes here */
 static volatile uint32_t rx_tail = 0;  /* Protocol handler reads here */
 
-/* Note: SPI0 RX data is fed by the SPI0 ISR (see spi0_isr.c) into the
- * ISR-level ring buffer (spi_rx_buf/spi_rx_head/spi_rx_tail). The
- * protocol handler drains bytes from that buffer in spi_protocol_process().
- * TX response data is written to the local tx_ring buffer and read by the
+/* The SPI0 ISR feeds bytes from the SPI0 RX FIFO into the ring buffer
+ * (spi_rx_buf/spi_rx_head/spi_rx_tail). The protocol handler drains
+ * bytes from that buffer in spi_protocol_process().
+ * TX responses are written to the local tx_ring buffer and read by the
  * ISR during SPI transactions.
  *
  * The SPI0 ISR does NOT use the tx_ring/tx_head/tx_tail defined here;
  * responses are sent by the host polling the SPI bus or via INT_REQ
  * assertion followed by the host initiating a transfer. */
 
-/* TX Response Ring Buffer (protocol handler writes, SPI0 ISR reads) */
-#define TX_RING_SIZE  4096
 static uint8_t tx_ring[TX_RING_SIZE];
 static volatile uint32_t tx_head = 0;  /* Protocol handler writes here */
 static volatile uint32_t tx_tail = 0;  /* ISR reads from here */
@@ -308,6 +315,11 @@ extern uint8_t spi_rx_buf[];
 extern volatile uint32_t spi_rx_head;
 extern volatile uint32_t spi_rx_tail;
 #define SPI_RX_BUF_SIZE 8192
+
+/* SPI_RX_BUF_SIZE must be a power of 2 for the ring buffer masking
+ * in spi_protocol_process() to work correctly. */
+_Static_assert((SPI_RX_BUF_SIZE & (SPI_RX_BUF_SIZE - 1)) == 0,
+               "SPI_RX_BUF_SIZE must be a power of 2");
 
 /* External GPIO base for INT_REQ */
 #define RP2350B_GPIO_BASE     0x400D0000UL
@@ -410,8 +422,11 @@ static int build_response_frame(uint8_t cmd, const uint8_t *payload,
 
     total_len = SPI_HDR_SIZE + payload_len + SPI_CRC32_SIZE;
 
-    /* Check if TX ring has space */
-    uint32_t avail = (TX_RING_SIZE - ((tx_head - tx_tail) & (TX_RING_SIZE - 1))) - 1;
+    /* Check if TX ring has space.
+     * Available space = TX_RING_SIZE - used - 1, where used = (tx_head - tx_tail) mod TX_RING_SIZE.
+     * The mask arithmetic is safe because TX_RING_SIZE is a power of 2 (verified at compile time). */
+    uint32_t used = (tx_head - tx_tail) & (TX_RING_SIZE - 1);
+    uint32_t avail = TX_RING_SIZE - used - 1;
     if ((uint32_t)total_len > avail) {
         proto_stats.tx_overruns++;
         return -1;
@@ -948,6 +963,10 @@ void spi_protocol_update_telemetry(uint16_t rssi_dbm_x10,
  * Call from a timer interrupt or main loop to update uptime.
  * Note: Watchdog feeding is handled separately in the main loop
  * via watchdog_kick(), not here, to avoid double-feeding.
+ *
+ * uptime_ms wraps at UINT32_MAX (~49.7 days at 1 ms resolution).
+ * This is acceptable for telemetry purposes — the host should treat
+ * uptime_ms as a monotonically increasing value that wraps.
  */
 void spi_protocol_tick(void) {
     device_state.uptime_ms++;

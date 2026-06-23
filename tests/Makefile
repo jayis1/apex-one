@@ -37,7 +37,7 @@ CFLAGS  = -Wall -Wextra -std=c11 -DNO_CMOCKA -g -O2
 LDFLAGS =
 
 # Userspace test targets
-USERSPACE_TARGETS = test_spi_protocol test_battery_monitor test_cc1101_config test_watchdog test_power_states test_libapex test_sdr_dma test_spi0_isr test_st25r3916_init
+USERSPACE_TARGETS = test_spi_protocol test_battery_monitor test_cc1101_config test_watchdog test_power_states test_libapex test_sdr_dma test_spi0_isr test_st25r3916_init test_adc_calibration test_peripheral_power
 
 # Kernel module sources (build separately on target)
 KMOD_SOURCES = test_apex_bridge.c
@@ -60,6 +60,8 @@ help:
 	@echo "  test_sdr_dma          - Build SDR DMA ring buffer unit tests"
 	@echo "  test_spi0_isr         - Build SPI0 ISR frame assembly unit tests"
 	@echo "  test_st25r3916_init   - Build ST25R3916 NFC controller init tests"
+	@echo "  test_adc_calibration  - Build ADC calibration unit tests"
+	@echo "  test_peripheral_power - Build peripheral power sequencing unit tests"
 	@echo "  run / check           - Build and run all userspace tests"
 	@echo "  clean                 - Remove build artifacts"
 	@echo ""
@@ -93,6 +95,12 @@ test_spi0_isr: test_spi0_isr.c
 test_st25r3916_init: test_st25r3916_init.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
+test_adc_calibration: test_adc_calibration.c
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS) -lm
+
+test_peripheral_power: test_peripheral_power.c
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+
 run: $(USERSPACE_TARGETS)
 	@echo "=== Running SPI Protocol Unit Tests ==="
 	@./test_spi_protocol
@@ -120,6 +128,12 @@ run: $(USERSPACE_TARGETS)
 	@echo ""
 	@echo "=== Running ST25R3916 NFC Controller Init Unit Tests ==="
 	@./test_st25r3916_init
+	@echo ""
+	@echo "=== Running ADC Calibration Unit Tests ==="
+	@./test_adc_calibration
+	@echo ""
+	@echo "=== Running Peripheral Power Sequencing Unit Tests ==="
+	@./test_peripheral_power
 	@echo ""
 
 check: run
