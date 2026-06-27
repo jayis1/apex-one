@@ -29,6 +29,10 @@ sudo apt install -y build-essential cmake git python3 python3-pip \
 | libapex (userspace C) | `gcc` or `aarch64-linux-gnu-gcc` | ≥ 11.0 | Native or cross |
 | Python bindings | `gcc` + Python 3.8+ | ≥ 3.8 | CPython extension |
 
+> **Tip:** Run `make check` at the project root to verify all toolchain
+> dependencies are installed. See `software/toolchain.conf` for environment
+> variable defaults.
+
 ---
 
 ## 2. Building RP2350B Firmware

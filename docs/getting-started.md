@@ -114,9 +114,14 @@ See `docs/spi-protocol-timing.md` for detailed timing diagrams.
 - Ubuntu 22.04+ or equivalent Linux
 - Git, GCC, Make, CMake, Ninja
 - ARM cross-toolchain (`arm-none-eabi-gcc`)
+- AArch64 cross-toolchain (`aarch64-linux-gnu-gcc`) for kernel driver
 - Raspberry Pi Pico SDK v2.0+
 - Linux kernel headers (for module build)
 - Python 3.8+ with development headers
+- Device tree compiler (`dtc`)
+
+> **Tip:** Run `make check` or `source software/toolchain.conf` to verify all
+> toolchain dependencies are installed before building.
 
 ### 1. Clone the Repository
 

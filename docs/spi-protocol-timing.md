@@ -5,6 +5,30 @@ between the RK3576 host processor (SPI master) and the RP2350B coprocessor
 (SPI slave). These diagrams cover the physical SPI timing, the framing
 protocol, and the command-response sequences.
 
+## SPI Bridge Transaction Flow
+
+```mermaid
+sequenceDiagram
+    participant H as RK3576 (Host)
+    participant M as RP2350B (MCU)
+    
+    Note over H,M: Command Transaction
+    H->>M: CSn LOW
+    H->>M: TX frame (16B hdr + payload + CRC32)
+    H->>M: CSn HIGH
+    Note over M: Validate CRC-64 hdr + CRC-32 payload
+    M->>H: INT_REQ LOW (data ready)
+    
+    Note over H,M: Response Transaction
+    H->>M: CSn LOW
+    H->>M: NOP frame
+    M->>H: RX response (16B hdr + payload + CRC32)
+    H->>M: CSn HIGH
+    M->>H: INT_REQ HIGH (deassert)
+    
+    Note over H,M: For DMA streaming, repeat response<br/>phase with incrementing sequence numbers
+```
+
 ## 1. SPI Physical Layer Timing
 
 ### 1.1 SPI Mode Configuration

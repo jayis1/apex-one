@@ -11,11 +11,12 @@
 #   make tests       — Build and run unit tests
 #   make dtb         — Compile device tree sources
 #   make validate    — Validate DTS files (syntax check)
+#   make check       — Check toolchain availability
 #   make clean       — Remove all build artifacts
 #   make help        — Show available targets
 # ============================================================================
 
-.PHONY: all firmware driver libapex tests dtb validate clean help
+.PHONY: all firmware driver libapex tests dtb validate check clean help
 
 all: help
 
@@ -30,6 +31,7 @@ help:
 	@echo "  tests       — Build and run unit tests"
 	@echo "  dtb         — Compile device tree sources to DTB/DTBO"
 	@echo "  validate    — Validate DTS syntax"
+	@echo "  check       — Check toolchain availability"
 	@echo "  clean       — Remove all build artifacts"
 	@echo ""
 	@echo "Firmware requires PICO_SDK_PATH:"
@@ -84,3 +86,16 @@ clean:
 	$(MAKE) -C tests clean
 	$(MAKE) -C software/dts clean
 	@echo "Clean complete."
+
+# ── Toolchain Check ──────────────────────────────────────────────────────────
+check:
+	@echo "GhostBlade Cross-Compilation Toolchain Check"
+	@echo "=============================================="
+	@echo ""
+	@which $(CROSS_COMPILE)gcc >/dev/null 2>&1 && echo "✓ aarch64 GCC: $$($(CROSS_COMPILE)gcc --version | head -1)" || echo "✗ aarch64 GCC not found. Install: sudo apt install gcc-aarch64-linux-gnu"
+	@which arm-none-eabi-gcc >/dev/null 2>&1 && echo "✓ ARM bare-metal GCC: $$(arm-none-eabi-gcc --version | head -1)" || echo "✗ ARM bare-metal GCC not found. Install: sudo apt install gcc-arm-none-eabi"
+	@test -d $(PICO_SDK_PATH) && echo "✓ Pico SDK: $(PICO_SDK_PATH)" || echo "✗ Pico SDK not found at $(PICO_SDK_PATH)"
+	@which dtc >/dev/null 2>&1 && echo "✓ DTC: $$(dtc --version | head -1)" || echo "✗ DTC not found. Install: sudo apt install device-tree-compiler"
+	@test -d $(KDIR) && echo "✓ Kernel source: $(KDIR)" || echo "✗ Kernel source not found at $(KDIR)"
+	@echo ""
+	@echo "See software/toolchain.conf for cross-compilation environment setup."

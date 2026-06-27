@@ -4,6 +4,45 @@ This document describes the power architecture, voltage rail tree, and
 power-on sequencing requirements for the GhostBlade dual-processor
 pentesting device.
 
+## Power-On Sequencing Diagram
+
+```mermaid
+sequenceDiagram
+    participant BAT as Battery (3.0–4.2V)
+    participant PMIC as RK817 PMIC
+    participant SOC as RK3576
+    participant DDR as LPDDR5
+    participant MCU as RP2350B
+    participant SDR as LMS7002M
+    participant SUB as CC1101
+    participant NFC as ST25R3916
+    participant WiFi as MT7922
+
+    BAT->>PMIC: VBAT > 3.0V or USB-C valid
+    Note over PMIC: Power-on reset (PWRON key)
+    PMIC->>PMIC: VCC_SYS 3.4V (t=0ms)
+    PMIC->>SOC: VDD_LOGIC 1.8V (t=2ms)
+    PMIC->>SOC: VDD_CORE 0.9V (t=5ms)
+    PMIC->>SOC: PLL lock (~3ms)
+    PMIC->>DDR: VDD_DDR 1.1V (t=8ms)
+    PMIC->>DDR: VDDQ_DDR 0.6V (t=10ms)
+    Note over SOC: Boot ROM → SPL → U-Boot
+    PMIC->>SOC: VCC_3V3 (t=15ms)
+    PMIC->>WiFi: VCC_SDIO (t=20ms)
+    PMIC->>SDR: VCC_SDR 1.8V (t=20ms)
+    PMIC->>SDR: VCC_SDR 1.1V (t=25ms)
+    PMIC->>SDR: VCC_SDR 3.3V (t=30ms)
+    PMIC->>MCU: VCC_3V3_RP (t=50ms)
+    SOC->>MCU: MCU_RESET deassert (t=60ms)
+    Note over MCU: RP2350B firmware init (~60ms)
+    MCU->>SUB: VCC_SUBGHZ (t=100ms)
+    MCU->>NFC: VCC_NFC (t=100ms)
+    MCU->>SOC: HOST_RDY assert (t=120ms)
+    Note over SOC: apex_bridge driver probes SPI0
+    SOC->>SOC: PCIe power (t=150ms)
+    Note over SOC,NFC: System operational
+```
+
 ## Power Source
 
 | Source | Voltage | Current | Connector | Notes |

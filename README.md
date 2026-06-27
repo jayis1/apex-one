@@ -229,12 +229,13 @@ ghostblade/
 │   │   ├── Makefile
 │   │   ├── setup.py
 │   │   └── README.md
-│   └── dts/
+│   ├── dts/
 │       ├── ghostblade-rk3576.dts              # Device tree source
 │       ├── ghostblade-options.dts              # Optional hardware overlay
 │       ├── ghostblade-sdr-overlay.dts          # SDR MIPI-CSI-2 + DMA overlay
 │       ├── ghostblade-nfc-overlay.dts          # NFC (ST25R3916) configuration overlay
 │       └── Makefile                            # DTS compile & validate targets
+│   └── toolchain.conf                          # Cross-compilation toolchain setup
 ├── tests/
 │   ├── Makefile                               # Test build & run targets
 │   ├── test_spi_protocol.c                    # SPI protocol unit tests
@@ -247,6 +248,9 @@ ghostblade/
 │   ├── test_libapex.c                          # libapex userspace library tests
 │   ├── test_st25r3916_init.c                   # ST25R3916 NFC controller init tests
 │   ├── test_apex_bridge.c                     # Kernel module test harness
+│   ├── test_adc_calibration.c                # ADC calibration & voltage divider tests
+│   ├── test_peripheral_power.c              # Peripheral power management tests
+│   ├── test_cc1101_lms7002m.c              # CC1101 + LMS7002M integration tests
 │   └── hil_spi_bridge_test.sh                 # HIL SPI bridge test script
 ├── tools/
 │   ├── generate_gerbers.py                    # Gerber/fab-note generation script
@@ -316,6 +320,8 @@ ghostblade/
 | [SPI Protocol & Timing](docs/spi-protocol-timing.md) | Bridge protocol, frame format, timing diagrams |
 | [Sysfs Attributes](docs/sysfs-attributes.md) | Driver telemetry attributes, usage examples |
 | [Hardware Test Procedures](docs/hardware-test-procedures.md) | 17-section manufacturing test plan |
+| [Hardware Bring-Up Checklist](docs/hardware-bringup-checklist.md) | Step-by-step board bring-up with expected values |
+| [ESD Protection & Test Points](docs/hardware-protection-and-testpoints.md) | TVS protection, reset timing, test point map |
 | [Hardware Contributor Guide](docs/hardware-contributor-guide.md) | Schematic/PCB design guidelines, DRC rules |
 | [Contributing](docs/contributing.md) | Code, documentation, and hardware contribution workflow |
 | [Contributor Onboarding](docs/getting-started-contributors.md) | Step-by-step checklist for new contributors |
@@ -370,6 +376,10 @@ See `apex_bridge_regs.h` for full opcode definitions.
 - `aarch64-linux-gnu-gcc` cross-compiler for RK3576 Linux
 - KiCad 8+ for schematic/PCB editing
 - Linux kernel 6.6+ headers for driver compilation
+- `dtc` (device tree compiler) for DTS compilation
+
+> **Tip:** Run `make check` to verify all toolchains are installed, or
+> `source software/toolchain.conf` to set up cross-compilation environment.
 
 ### Building the Linux Driver
 

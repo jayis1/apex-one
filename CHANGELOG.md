@@ -13,6 +13,16 @@ Hardware revisions follow CERN-OHL-S v2 version numbering. Firmware and software
 
 ### Added
 
+- Cross-compilation toolchain configuration (`software/toolchain.conf`) with `ghostblade_check_toolchain` helper
+- `make check` target in top-level Makefile for toolchain availability verification
+- Mermaid power-on sequencing diagram to `docs/power-tree.md`
+- Mermaid memory map overview diagram to `docs/memory-map.md`
+- Mermaid SPI bridge transaction flow diagram to `docs/spi-protocol-timing.md`
+- DTS verification cross-reference table to `docs/pin-assignments.md`
+- Hardware bring-up checklist and ESD protection docs linked from `docs/index.md`
+- Missing test files (`test_adc_calibration.c`, `test_peripheral_power.c`, `test_cc1101_lms7002m.c`) added to README repo structure
+- Updated `stats.json` with current line counts and file totals
+
 - LMS7002M SDR transceiver driver for RP2350B (`firmware/rp2350b/src/lms7002m_driver.c`, `include/lms7002m_driver.h`)
   - PLL frequency synthesis with VCO_L (1.88–3.72 GHz) and VCO_H (3.72–5.8 GHz) range selection
   - RX/TX gain distribution across LNA (0–73 dB), TIA (12 dB fixed), and PGA (0–31 dB) stages

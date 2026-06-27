@@ -162,6 +162,41 @@ When adding or modifying a signal, update these sources:
 - [ ] **Kernel driver** (`software/linux-drivers/include/apex_bridge_regs.h` if RK3576 GPIO)
 - [ ] **This document** (`docs/pin-assignments.md`)
 
+### DTS Verification
+
+To verify that the device tree pin assignments match the schematic and
+firmware, use the DTS Makefile validation target:
+
+```bash
+cd software/dts
+make validate DTS_INCLUDE_PATHS="-I/path/to/linux/include/dt-bindings -I/path/to/linux/arch/arm64/boot/dts/rockchip"
+```
+
+Key cross-reference checks:
+
+| Signal | DTS GPIO Number | Firmware Pin | Schematic Net | Must Match |
+|--------|----------------|-------------|---------------|------------|
+| SPI0_MOSI | GPIO1_A0 (8) | PIN_SPI0_TX (19) | NET_SPI_MOSI | ✓ |
+| SPI0_MISO | GPIO1_A1 (9) | PIN_SPI0_RX (16) | NET_SPI_MISO | ✓ |
+| SPI0_SCK | GPIO1_A2 (10) | PIN_SPI0_SCK (18) | NET_SPI_CLK | ✓ |
+| SPI0_CSn | GPIO1_A3 (11) | PIN_SPI0_CSN (17) | NET_SPI_CSN | ✓ |
+| INT_REQ | GPIO1_B0 (8) | PIN_INT_REQ (20) | NET_GPIO_INT_REQ | ✓ |
+| HOST_RDY | GPIO1_B1 (9) | PIN_HOST_RDY (21) | NET_GPIO_HOST_RDY | ✓ |
+| MCU_RESET | GPIO1_B2 (10) | PIN_MCU_RUN (24) | NET_GPIO_MCU_RSTn | ✓ |
+| ANT_SEL0 | GPIO1_C1 (17) | PIN_ANT_SEL0 (2) | NET_ANT_SEL0 | ✓ |
+| ANT_SEL1 | GPIO1_C2 (18) | PIN_ANT_SEL1 (3) | NET_ANT_SEL1 | ✓ |
+| BOOTSEL | GPIO1_B4 (12) | — | NET_GPIO_BOOTSEL | ✓ |
+| USER_BTN | GPIO1_B5 (13) | — | NET_GPIO_USER | ✓ |
+| STATUS_LED | GPIO1_B6 (14) | — | NET_GPIO_STATUS | ✓ |
+| ACTIVITY_LED | GPIO1_B7 (15) | — | NET_GPIO_ACTIVITY | ✓ |
+| SDR_RX_LED | GPIO1_C0 (16) | — | NET_GPIO_SDR_RX | ✓ |
+
+> **Note:** DTS GPIO numbers use the Linux GPIO numbering scheme
+> (GPIO1_A0 = bank 1 offset 0 = 8 + 0 = 8, GPIO1_B0 = 8 + 8 = 16
+> but the DTS uses bank-relative numbering). The `pinctrl` entries
+> in `ghostblade-rk3576.dts` must use the same pin names as the
+> schematic netlist.
+
 ---
 
-*Last updated: 2026-06-18. Generated from GhostBlade.mf, board_pins.h, and ghostblade-rk3576.dts.*
+*Last updated: 2026-06-27. Generated from GhostBlade.mf, board_pins.h, and ghostblade-rk3576.dts.*

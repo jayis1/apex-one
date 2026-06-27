@@ -1021,6 +1021,9 @@ static __poll_t apex_bridge_poll(struct file *filp,
     struct apex_bridge_dev *dev = filp->private_data;
     __poll_t mask = 0;
 
+    if (!dev)
+        return EPOLLERR;
+
     poll_wait(filp, &dev->rx_waitq, wait);
     poll_wait(filp, &dev->tx_waitq, wait);
 
@@ -1034,6 +1037,10 @@ static __poll_t apex_bridge_poll(struct file *filp,
     /* Report MCU reset as hangup */
     if (test_bit(APEX_FLAG_MCU_RESET, &dev->flags))
         mask |= EPOLLHUP;
+
+    /* Report brownout/low battery as priority event */
+    if (test_bit(APEX_FLAG_LOW_BATTERY, &dev->flags))
+        mask |= EPOLLPRI;
 
     /* Writable when TX FIFO has space (or always if FIFO is large enough) */
     if (kfifo_avail(&dev->tx_fifo) > 0)
@@ -1766,8 +1773,8 @@ static int apex_sg_engine_start(struct apex_bridge_dev *dev,
                 apex_spi_xfer(dev, frame, frame_len, rx,
                               APEX_SPI_FRAME_SIZE_MAX);
         }
-        kfree(frame);
-        kfree(rx);
+        kfree_sensitive(frame);
+        kfree_sensitive(rx);
     }
 
     /* Schedule the SG work */
@@ -1822,8 +1829,8 @@ static int apex_sg_engine_stop(struct apex_bridge_dev *dev)
                 apex_spi_xfer(dev, frame, frame_len, rx,
                               APEX_SPI_FRAME_SIZE_MAX);
         }
-        kfree(frame);
-        kfree(rx);
+        kfree_sensitive(frame);
+        kfree_sensitive(rx);
     }
 
     /* Free DMA-coherent buffers (wipe sensitive data before freeing to prevent

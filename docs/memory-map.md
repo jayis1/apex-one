@@ -5,6 +5,50 @@ registers, SPI bridge protocol structures, and ioctl interfaces used in the
 GhostBlade system. It consolidates information from the kernel driver headers
 and firmware source into a single reference.
 
+## Memory Map Overview
+
+```mermaid
+graph TB
+    subgraph RK3576["RK3576 (Linux Host)"]
+        SPI0["SPI0 Controller<br/>0xFE610000"]
+        GPIO1["GPIO1 Bank<br/>0xFD510000"]
+        CSI2["MIPI-CSI-2<br/>RX0/RX1"]
+        I2C1["I2C1 Controller<br/>0xFD880000"]
+        SDIO["SDIO Controller<br/>(MT7922)"]
+    end
+
+    subgraph RP2350B["RP2350B (MCU Coprocessor)"]
+        SPI0_SLAVE["SPI0 Slave<br/>(framed protocol)"]
+        SPI1_MASTER["SPI1 Master<br/>(SDR + CC1101)"]
+        SPI2_MASTER["SPI2 Master<br/>(NFC ST25R3916)"]
+        I2C0_SLAVE["I2C0 Slave<br/>0x42"]
+        ADC["ADC<br/>ch0=VBAT, ch4=Temp"]
+        DMA["DMA Engine<br/>(SDR IQ streaming)"]
+    end
+
+    subgraph Peripherals["RF Peripherals"]
+        LMS["LMS7002M SDR"]
+        CC["CC1101 Sub-GHz"]
+        NFC["ST25R3916 NFC"]
+        ANT["PE42422 Switch"]
+    end
+
+    SPI0 -- "50 MHz SPI<br/>CRC-64/CRC-32 framed" --> SPI0_SLAVE
+    GPIO1 -- "INT_REQ / HOST_RDY / MCU_RESET" --> SPI0_SLAVE
+    CSI2 -- "IQ Data<br/>4-lane MIPI" --> LMS
+    SPI1_MASTER -- "SDR control" --> LMS
+    SPI1_MASTER -- "CC1101 config" --> CC
+    SPI2_MASTER -- "NFC control" --> NFC
+    I2C1 -- "telemetry" --> I2C0_SLAVE
+    RP2350B -- "GPIO 2/3" --> ANT
+    LMS -- "RF path" --> ANT
+    CC -- "sub-GHz" --> ANT
+
+    style RK3576 fill:#4a86c8,color:#fff
+    style RP2350B fill:#2d8659,color:#fff
+    style Peripherals fill:#c44d58,color:#fff
+```
+
 ## Table of Contents
 
 - [RK3576 SPI0 Controller (0xFE610000)](#rk3576-spi0-controller-0xfe610000)
