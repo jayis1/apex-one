@@ -25,6 +25,8 @@ This page provides a central index of all GhostBlade (Project NullSpectre) docum
 | [Reset Circuit Design](reset-circuit-design.md) | Reset circuits for all processors and peripherals |
 | [FAQ & Troubleshooting](faq-troubleshooting.md) | Common issues, error codes, and solutions |
 | [Pin Assignments](pin-assignments.md) | Cross-reference: schematic, DTS, and firmware pin mappings |
+| [GPIO Cross-Reference](gpio-cross-reference.md) | RK3576 DTS ↔ RP2350B board_pins.h ↔ schematic net name mapping |
+| [Glossary](glossary.md) | Project-specific terms, acronyms, and abbreviations |
 
 ## Hardware
 
@@ -42,6 +44,7 @@ This page provides a central index of all GhostBlade (Project NullSpectre) docum
 | Overlay | Description |
 |---------|-------------|
 | `ghostblade-sdr-overlay.dts` | SDR (LMS7002M) runtime config: frequency, bandwidth, gain, DMA buffers |
+| `ghostblade-cc1101-overlay.dts` | Sub-GHz radio (CC1101) runtime config: frequency band, modulation, TX power, GDO pins |
 | `ghostblade-nfc-overlay.dts` | NFC (ST25R3916) runtime config: protocol, TX power, polling interval |
 | `ghostblade-wifi-overlay.dts` | Wi-Fi 6E (MT7922) runtime config: regulatory domain, TX power, monitor mode, BT |
 | `ghostblade-options.dts` | Optional hardware: GPS (u-blox NEO-M10N on UART2), external LNA, Bluetooth |

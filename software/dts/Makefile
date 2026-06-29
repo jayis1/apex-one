@@ -30,6 +30,7 @@ DTS_SOURCES = ghostblade-rk3576.dts
 # Overlay sources (compiled to .dtbo)
 DTO_SOURCES = ghostblade-options.dts \
               ghostblade-sdr-overlay.dts \
+              ghostblade-cc1101-overlay.dts \
               ghostblade-nfc-overlay.dts \
               ghostblade-wifi-overlay.dts
 

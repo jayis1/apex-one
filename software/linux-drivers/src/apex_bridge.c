@@ -1007,7 +1007,7 @@ static long apex_bridge_ioctl(struct file *filp, unsigned int cmd,
 
         memset(&status, 0, sizeof(status));
 
-        spin_lock(&dev->rx_lock);
+        mutex_lock(&dev->sg_engine.sg_lock);
         status.state = dev->sg_engine.state;
         status.buf_count = dev->sg_engine.buf_count;
         status.buf_size = dev->sg_engine.buf_size;
@@ -1016,7 +1016,7 @@ static long apex_bridge_ioctl(struct file *filp, unsigned int cmd,
         status.errors = dev->sg_engine.errors;
         status.frames_rx = dev->sg_engine.frames_rx;
         status.frames_crc_err = dev->sg_engine.frames_crc_err;
-        spin_unlock(&dev->rx_lock);
+        mutex_unlock(&dev->sg_engine.sg_lock);
 
         if (copy_to_user((struct apex_sg_status __user *)arg,
                          &status, sizeof(status))) {

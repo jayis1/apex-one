@@ -197,7 +197,8 @@ sudo cp ghostblade-sdr-overlay.dtbo /sys/kernel/config/device-tree/overlays/sdr/
 
 # CC1101 configuration overlay
 dtc -I dts -O dtb -@ -o ghostblade-cc1101-overlay.dtbo ghostblade-cc1101-overlay.dts
-# ... apply similarly
+sudo mkdir -p /sys/kernel/config/device-tree/overlays/cc1101
+sudo cp ghostblade-cc1101-overlay.dtbo /sys/kernel/config/device-tree/overlays/cc1101/dtbo
 
 # Wi-Fi 6E configuration overlay
 dtc -I dts -O dtb -@ -o ghostblade-wifi-overlay.dtbo ghostblade-wifi-overlay.dts

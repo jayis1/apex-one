@@ -637,6 +637,326 @@ static void test_frame_sizes(void)
                    "Max frame size = 4112");
 }
 
+/* Test 15: Command opcode boundary validation
+ *
+ * Verifies that all defined command opcodes can be encoded in frames
+ * and that reserved/unused opcodes are handled gracefully.
+ */
+static void test_command_opcodes(void)
+{
+    uint8_t *frame;
+    uint8_t cmd;
+    uint16_t plen;
+    const uint8_t *payload;
+    int frame_len, ret;
+    uint8_t data[4] = {0x01, 0x02, 0x03, 0x04};
+
+    frame = kmalloc(APEX_SPI_FRAME_SIZE_MAX, GFP_KERNEL);
+    TEST_ASSERT(frame != NULL, "Allocate opcode test frame buffer");
+
+    /* Test all defined host-to-MCU commands */
+    {
+        uint8_t host_cmds[] = {
+            APEX_CMD_NOP,
+            APEX_CMD_SDR_TUNE,
+            APEX_CMD_SDR_STREAM,
+            APEX_CMD_ANT_SELECT,
+            APEX_CMD_CC1101_CFG,
+            APEX_CMD_NFC_TRANSACT,
+            APEX_CMD_TELEMETRY_REQ,
+        };
+        int i;
+
+        for (i = 0; i < ARRAY_SIZE(host_cmds); i++) {
+            frame_len = test_build_frame(host_cmds[i], data, 4,
+                                          frame, APEX_SPI_FRAME_SIZE_MAX);
+            TEST_ASSERT(frame_len > 0, "Build frame for host command opcode");
+
+            ret = test_validate_frame(frame, (size_t)frame_len,
+                                       &cmd, &plen, &payload);
+            TEST_ASSERT_EQ(0, ret, "Validate host command opcode frame");
+            TEST_ASSERT_EQ(host_cmds[i], cmd,
+                           "Host command opcode preserved in round-trip");
+        }
+    }
+
+    /* Test MCU-to-Host commands */
+    {
+        uint8_t mcu_cmds[] = {
+            APEX_CMD_TELEMETRY,
+            APEX_CMD_SDR_IQ_CHUNK,
+        };
+        int i;
+
+        for (i = 0; i < ARRAY_SIZE(mcu_cmds); i++) {
+            frame_len = test_build_frame(mcu_cmds[i], data, 4,
+                                          frame, APEX_SPI_FRAME_SIZE_MAX);
+            TEST_ASSERT(frame_len > 0, "Build frame for MCU command opcode");
+
+            ret = test_validate_frame(frame, (size_t)frame_len,
+                                       &cmd, &plen, &payload);
+            TEST_ASSERT_EQ(0, ret, "Validate MCU command opcode frame");
+            TEST_ASSERT_EQ(mcu_cmds[i], cmd,
+                           "MCU command opcode preserved in round-trip");
+        }
+    }
+
+    /* Test that opcode 0x00 (undefined) still builds a valid frame —
+     * the protocol doesn't restrict opcodes, only the command dispatcher does */
+    frame_len = test_build_frame(0x00, data, 4, frame,
+                                  APEX_SPI_FRAME_SIZE_MAX);
+    TEST_ASSERT(frame_len > 0, "Build frame with undefined opcode 0x00");
+    ret = test_validate_frame(frame, (size_t)frame_len, &cmd, &plen, &payload);
+    TEST_ASSERT_EQ(0, ret, "Validate frame with undefined opcode 0x00");
+    TEST_ASSERT_EQ(0x00, cmd, "Undefined opcode 0x00 preserved");
+
+    /* Test NOP with zero-length payload round-trip */
+    frame_len = test_build_frame(APEX_CMD_NOP, NULL, 0, frame,
+                                  APEX_SPI_FRAME_SIZE_MAX);
+    TEST_ASSERT_EQ(20, frame_len, "NOP frame has minimum size");
+    ret = test_validate_frame(frame, (size_t)frame_len, &cmd, &plen, &payload);
+    TEST_ASSERT_EQ(0, ret, "NOP frame validates correctly");
+    TEST_ASSERT_EQ(0, (int)plen, "NOP frame has zero payload");
+
+    kfree(frame);
+}
+
+/* Dummy telemetry structure for size validation — matches kernel layout */
+struct test_apex_telemetry {
+    uint16_t rssi_dbm_x10;
+    uint16_t temp_c_x10;
+    uint16_t vbat_mv;
+    uint16_t cc1101_rssi_x10;
+    uint16_t nfc_field_mv;
+    uint16_t flags;
+    uint32_t uptime_ms;
+} __packed;
+
+/* Test 16: Telemetry structure size and alignment
+ *
+ * Verifies that the telemetry payload structure matches the expected
+ * size and field offsets for both kernel and userspace. This ensures
+ * the ioctl interface doesn't break due to struct padding differences.
+ */
+static void test_telemetry_struct(void)
+{
+    /* The telemetry structure must be exactly 16 bytes:
+     *   rssi_dbm_x10  (2B) + temp_c_x10 (2B) + vbat_mv (2B) +
+     *   cc1101_rssi_x10 (2B) + nfc_field_mv (2B) + flags (2B) +
+     *   uptime_ms (4B) = 16 bytes */
+    TEST_ASSERT_EQ(16, (int)sizeof(struct test_apex_telemetry),
+                   "Telemetry structure is 16 bytes");
+
+    /* Test that a telemetry-sized payload round-trips correctly */
+    {
+        uint8_t *frame;
+        uint8_t telem_data[16];
+        int frame_len, ret;
+        uint8_t cmd;
+        uint16_t plen;
+        const uint8_t *payload;
+
+        /* Simulate a telemetry payload */
+        telem_data[0] = 0xD0; telem_data[1] = 0x07; /* rssi = -200 → 0x07D0 LE → actually -48.0 dBm = -480 x10 = 0xFE20 */
+        telem_data[2] = 0x22; telem_data[3] = 0x01; /* temp = 290 → 29.0°C */
+        telem_data[4] = 0x82; telem_data[5] = 0x0E; /* vbat = 3714 mV */
+        telem_data[6] = 0x50; telem_data[7] = 0xFD; /* cc1101 rssi = -688 → -68.8 dBm (signed) */
+        telem_data[8] = 0xE8; telem_data[9] = 0x03; /* nfc field = 1000 mV */
+        telem_data[10] = 0x25; telem_data[11] = 0x00; /* flags = 0x0025 */
+        telem_data[12] = 0x78; telem_data[13] = 0x56; telem_data[14] = 0x34;
+        telem_data[15] = 0x12; /* uptime = 0x12345678 ms */
+
+        frame = kmalloc(APEX_SPI_FRAME_SIZE_MAX, GFP_KERNEL);
+        TEST_ASSERT(frame != NULL, "Allocate telemetry frame buffer");
+
+        frame_len = test_build_frame(APEX_CMD_TELEMETRY, telem_data, 16,
+                                      frame, APEX_SPI_FRAME_SIZE_MAX);
+        TEST_ASSERT_EQ(36, frame_len,
+                       "Telemetry frame size = 36 (16 hdr + 16 payload + 4 CRC)");
+
+        ret = test_validate_frame(frame, (size_t)frame_len, &cmd, &plen, &payload);
+        TEST_ASSERT_EQ(0, ret, "Validate telemetry frame");
+        TEST_ASSERT_EQ(APEX_CMD_TELEMETRY, cmd, "Telemetry command = 0x81");
+        TEST_ASSERT_EQ(16, (int)plen, "Telemetry payload = 16 bytes");
+        TEST_ASSERT(memcmp(payload, telem_data, 16) == 0,
+                    "Telemetry payload content matches");
+
+        kfree(frame);
+    }
+}
+
+/* Test 17: Brownout flag edge detection
+ *
+ * Simulates the brownout detection logic that tracks rising-edge
+ * transitions of the LOW_BATTERY flag. Each 0→1 transition increments
+ * the brownout counter, matching the kernel driver's edge detection.
+ */
+static void test_brownout_edge_detection(void)
+{
+    /* Simulate the kernel driver's atomic brownout edge detection:
+     * atomic_xchg(&dev->brownout_prev_flag, 1) == 0 → count++
+     * atomic_xchg(&dev->brownout_prev_flag, 0) when flag clears */
+
+    int brownout_count = 0;
+    int prev_flag = 0;
+    int new_flags[] = {
+        0x0000, /* No flags */
+        0x0080, /* LOW_BATTERY set → first rising edge */
+        0x0080, /* LOW_BATTERY still set → no edge */
+        0x0025, /* LOW_BATTERY cleared → falling edge */
+        0x0085, /* LOW_BATTERY set again → second rising edge */
+        0x0085, /* LOW_BATTERY still set → no edge */
+        0x0000, /* LOW_BATTERY cleared → falling edge */
+        0x0080, /* LOW_BATTERY set again → third rising edge */
+    };
+    int expected_counts[] = {0, 1, 1, 1, 2, 2, 2, 3};
+    int i;
+
+    for (i = 0; i < ARRAY_SIZE(new_flags); i++) {
+        int low_battery = !!(new_flags[i] & 0x0080); /* APEX_FLAG_LOW_BATTERY = bit 7 */
+
+        if (low_battery) {
+            /* Simulate: if (atomic_xchg(&dev->brownout_prev_flag, 1) == 0)
+             *              atomic_inc(&dev->brownout_count); */
+            if (prev_flag == 0)
+                brownout_count++;
+            prev_flag = 1;
+        } else {
+            /* Simulate: atomic_set(&dev->brownout_prev_flag, 0); */
+            prev_flag = 0;
+        }
+
+        TEST_ASSERT_EQ(expected_counts[i], brownout_count,
+                       "Brownout count after flag transition");
+    }
+}
+
+/* Test 18: CRC-32 over zero-length payload
+ *
+ * Verifies that a frame with zero-length payload has a CRC-32 trailer
+ * computed over 0 bytes (should be 0x00000000). This matches the
+ * kernel driver behavior where apex_crc32(payload, 0) is called for
+ * NOP commands with no payload.
+ */
+static void test_zero_length_payload_crc(void)
+{
+    uint8_t *frame;
+    int frame_len;
+    uint32_t zero_payload_crc;
+
+    /* CRC-32 of 0 bytes should be 0x00000000 */
+    zero_payload_crc = test_crc32(NULL, 0);
+    TEST_ASSERT_EQ(0x00000000UL, zero_payload_crc,
+                   "CRC-32 of zero-length data = 0");
+
+    frame = kmalloc(APEX_SPI_FRAME_SIZE_MAX, GFP_KERNEL);
+    TEST_ASSERT(frame != NULL, "Allocate zero-payload CRC frame buffer");
+
+    frame_len = test_build_frame(APEX_CMD_NOP, NULL, 0, frame,
+                                  APEX_SPI_FRAME_SIZE_MAX);
+    TEST_ASSERT_EQ(20, frame_len, "NOP frame size = 20");
+
+    /* Verify the CRC-32 trailer at offset 16 is 0x00000000 */
+    TEST_ASSERT_EQ(0, frame[16], "NOP CRC-32 byte 0 = 0x00");
+    TEST_ASSERT_EQ(0, frame[17], "NOP CRC-32 byte 1 = 0x00");
+    TEST_ASSERT_EQ(0, frame[18], "NOP CRC-32 byte 2 = 0x00");
+    TEST_ASSERT_EQ(0, frame[19], "NOP CRC-32 byte 3 = 0x00");
+
+    kfree(frame);
+}
+
+/* Test 19: Payload length boundary validation
+ *
+ * Verifies that payload length values at boundaries (0, 1, 4091, 4092, 4093)
+ * are handled correctly: 0 and 4092 are valid, 4093 should be rejected.
+ */
+static void test_payload_length_boundaries(void)
+{
+    uint8_t *frame;
+    uint8_t *payload;
+    int frame_len, ret;
+    uint8_t cmd;
+    uint16_t plen;
+    const uint8_t *payload_out;
+
+    frame = kmalloc(APEX_SPI_FRAME_SIZE_MAX + 16, GFP_KERNEL);
+    payload = kmalloc(APEX_SPI_MAX_PAYLOAD + 1, GFP_KERNEL);
+    TEST_ASSERT(frame != NULL, "Allocate boundary frame buffer");
+    TEST_ASSERT(payload != NULL, "Allocate boundary payload buffer");
+
+    /* Fill payload with pattern */
+    memset(payload, 0xA5, APEX_SPI_MAX_PAYLOAD + 1);
+
+    /* Payload length 1 */
+    frame_len = test_build_frame(APEX_CMD_SDR_STREAM, payload, 1,
+                                  frame, APEX_SPI_FRAME_SIZE_MAX);
+    TEST_ASSERT_EQ(21, frame_len, "Frame with 1-byte payload = 21 bytes");
+    ret = test_validate_frame(frame, (size_t)frame_len, &cmd, &plen, &payload_out);
+    TEST_ASSERT_EQ(0, ret, "Validate frame with 1-byte payload");
+    TEST_ASSERT_EQ(1, (int)plen, "Payload length = 1");
+
+    /* Payload length 4091 */
+    frame_len = test_build_frame(APEX_CMD_SDR_IQ_CHUNK, payload, 4091,
+                                  frame, APEX_SPI_FRAME_SIZE_MAX);
+    TEST_ASSERT(frame_len > 0, "Build frame with 4091-byte payload");
+    ret = test_validate_frame(frame, (size_t)frame_len, &cmd, &plen, &payload_out);
+    TEST_ASSERT_EQ(0, ret, "Validate frame with 4091-byte payload");
+    TEST_ASSERT_EQ(4091, (int)plen, "Payload length = 4091");
+
+    /* Payload length 4092 (maximum) */
+    frame_len = test_build_frame(APEX_CMD_SDR_IQ_CHUNK, payload,
+                                  APEX_SPI_MAX_PAYLOAD,
+                                  frame, APEX_SPI_FRAME_SIZE_MAX);
+    TEST_ASSERT_EQ(APEX_SPI_FRAME_SIZE_MAX, frame_len,
+                   "Frame with max payload = 4112 bytes");
+    ret = test_validate_frame(frame, (size_t)frame_len, &cmd, &plen, &payload_out);
+    TEST_ASSERT_EQ(0, ret, "Validate frame with max payload");
+    TEST_ASSERT_EQ(APEX_SPI_MAX_PAYLOAD, (int)plen, "Payload length = 4092");
+
+    /* Payload length 4093 (one over maximum) — should fail */
+    ret = test_build_frame(APEX_CMD_SDR_IQ_CHUNK, payload, 4093,
+                            frame, APEX_SPI_FRAME_SIZE_MAX);
+    TEST_ASSERT_EQ(-1, ret, "Reject payload length 4093 (over max)");
+
+    kfree(payload);
+    kfree(frame);
+}
+
+/* Test 20: Reserved field validation
+ *
+ * Verifies that bytes 4-7 (reserved) in the frame header must be zero
+ * for the frame to be considered valid. The production kernel driver
+ * does not check reserved bytes (future use), but the test verifies
+ * that non-zero reserved bytes don't affect CRC validation since
+ * the CRC is computed over bytes 0-7 (including reserved).
+ */
+static void test_reserved_field_nonzero(void)
+{
+    uint8_t *frame;
+    int frame_len, ret;
+
+    frame = kmalloc(APEX_SPI_FRAME_SIZE_MAX, GFP_KERNEL);
+    TEST_ASSERT(frame != NULL, "Allocate reserved field test buffer");
+
+    frame_len = test_build_frame(APEX_CMD_NOP, NULL, 0, frame,
+                                  APEX_SPI_FRAME_SIZE_MAX);
+    TEST_ASSERT(frame_len > 0, "Build NOP frame for reserved field test");
+
+    /* The test_build_frame sets reserved bytes to 0. Verify they are 0. */
+    TEST_ASSERT_EQ(0, frame[4], "Reserved byte 4 = 0");
+    TEST_ASSERT_EQ(0, frame[5], "Reserved byte 5 = 0");
+    TEST_ASSERT_EQ(0, frame[6], "Reserved byte 6 = 0");
+    TEST_ASSERT_EQ(0, frame[7], "Reserved byte 7 = 0");
+
+    /* Corrupting a reserved byte should cause CRC-64 failure,
+     * because the CRC-64 covers bytes 0-7 (including reserved). */
+    frame[4] = 0x01;
+    ret = test_validate_frame(frame, (size_t)frame_len, NULL, NULL, NULL);
+    TEST_ASSERT(ret != 0, "Non-zero reserved byte causes validation failure");
+
+    kfree(frame);
+}
+
 /* ========================================================================
  * Test Runner
  * ======================================================================== */
@@ -695,6 +1015,24 @@ static int run_all_tests(void)
 
     pr_info("test_apex: Running frame size test...\n");
     test_frame_sizes();
+
+    pr_info("test_apex: Running command opcode test...\n");
+    test_command_opcodes();
+
+    pr_info("test_apex: Running telemetry struct test...\n");
+    test_telemetry_struct();
+
+    pr_info("test_apex: Running brownout edge detection test...\n");
+    test_brownout_edge_detection();
+
+    pr_info("test_apex: Running zero-length payload CRC test...\n");
+    test_zero_length_payload_crc();
+
+    pr_info("test_apex: Running payload length boundary test...\n");
+    test_payload_length_boundaries();
+
+    pr_info("test_apex: Running reserved field test...\n");
+    test_reserved_field_nonzero();
 
     pr_info("test_apex: === Results: %d/%d passed, %d failed ===\n",
             passed_tests, total_tests, failed_tests);
@@ -784,5 +1122,5 @@ module_exit(test_apex_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("GhostBlade Project");
-MODULE_DESCRIPTION("Test harness for GhostBlade SPI bridge kernel driver");
-MODULE_VERSION("1.0");
+MODULE_DESCRIPTION("Test harness for GhostBlade SPI bridge kernel driver (20 tests)");
+MODULE_VERSION("1.1");

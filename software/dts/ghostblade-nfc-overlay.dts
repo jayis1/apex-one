@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
- * Device Tree Overlay — GhostBlade NFC (ST25R3916) Runtime Configuration
+ * Device Tree Overlay — GhostBlade NFC Runtime Configuration
  * Project NullSpectre
  *
- * This overlay configures the ST25R3916 NFC reader/writer parameters
- * through the device tree. The RP2350B firmware reads these properties
- * at boot and applies them to the ST25R3916 via SPI2 and I2C1.
- *
- * Apply when NFC configuration needs to be changed without reflashing
- * the base DTB or recompiling the RP2350B firmware.
+ * This overlay allows runtime reconfiguration of the ST25R3916 NFC
+ * controller parameters through the device tree. Apply when NFC polling
+ * mode, protocol selection, or RF tuning need to be changed without
+ * reflashing the base DTB.
  *
  * Usage:
  *   dtc -I dts -O dtb -@ -o ghostblade-nfc-overlay.dtbo ghostblade-nfc-overlay.dts
@@ -29,12 +27,14 @@
 	compatible = "ghostblade,nullspectre", "rockchip,rk3576";
 
 	/*
-	 * Fragment 0: ST25R3916 NFC controller configuration
+	 * Fragment 0: ST25R3916 NFC controller runtime configuration
 	 *
-	 * The ST25R3916 is connected to the RP2350B via SPI2 (control)
-	 * and I2C1 (secondary control/telemetry). The RP2350B firmware
-	 * reads these properties during st25r3916_init() and applies
-	 * them to the ST25R3916 register map.
+	 * Configures the ST25R3916 via the RP2350B SPI2 bridge.
+	 * The apex_bridge driver reads these properties when processing
+	 * APEX_IOC_NFC_TRANSACT ioctl commands to validate parameters.
+	 *
+	 * These also serve as the default boot-time NFC configuration
+	 * that the RP2350B firmware applies during initialization.
 	 */
 	fragment@0 {
 		target-path = "/";
@@ -47,131 +47,181 @@
 				 * NFC protocol selection.
 				 * 0 = ISO 14443A (default, most common for pentesting)
 				 * 1 = ISO 14443B
-				 * 2 = ISO 15693 (Vicinity)
-				 * 3 = FeliCa
+				 * 2 = ISO 15693 (NFC-V)
+				 * 3 = FeliCa (NFC-F, 212/424 kbps)
+				 * 4 = NFC-DEP P2P (peer-to-peer)
+				 * 5 = Poll all (cycle through all supported protocols)
 				 */
 				apex,protocol = <0>; /* ISO 14443A default */
 
 				/*
-				 * Bit rate for ISO 14443 communication.
-				 * 0 = 106 kbps (default)
-				 * 1 = 212 kbps (FeliCa)
-				 * 2 = 424 kbps
-				 * 3 = 848 kbps (ISO 14443 high-speed)
+				 * Baud rate for the selected protocol.
+				 * For ISO 14443A/B:
+				 *   106 = 106 kbps (default)
+				 *   212 = 212 kbps (FeliCa only)
+				 *   424 = 424 kbps (FeliCa only)
+				 * For ISO 15693:
+				 *   26 = 26 kbps (long range)
+				 *   53 = 53 kbps (standard)
 				 */
-				apex,bit-rate = <0>; /* 106 kbps default */
+				apex,baud-rate-kbps = <106>; /* 106 kbps default */
 
 				/*
-				 * TX power level (antenna driver amplitude).
-				 * Range: 0–7 (0 = minimum, 7 = maximum output).
-				 * Higher values increase read range but also increase
-				 * power consumption and may cause interference.
+				 * Antenna tuning capacitance in pF.
+				 * The ST25R3916 has an internal tuning capacitor
+				 * register (0x08 ANA_TUNE) that can be adjusted for
+				 * antenna matching. Range: 0-255 (5.28 pF resolution).
+				 * Default 0x38 = 56 × 5.28 pF ≈ 295 pF.
 				 */
-				apex,tx-power = <5>; /* Moderate power */
+				apex,antenna-tune = <0x38>; /* 295 pF default */
 
 				/*
-				 * Anti-collision support.
-				 * 0 = Disabled (single tag only)
-				 * 1 = Enabled (default, handles multiple tags)
+				 * TX output power level.
+				 * 0 = Minimum power (for short-range read)
+				 * 1-255 = Scaled output (register ANA_TX_AMPLITUDE)
+				 * The ST25R3916 adjusts the TX driver amplitude.
+				 * Default 0x1F = 31 (medium power).
 				 */
-				apex,anticollision = <1>;
+				apex,tx-power = <0x1F>; /* Medium power */
+
+				/*
+				 * RX gain setting.
+				 * 0 = Minimum gain (for short-range, strong signals)
+				 * 1 = Medium gain
+				 * 2 = Maximum gain (for long-range, weak signals)
+				 * 3 = Automatic gain control (AGC, recommended default)
+				 */
+				apex,rx-gain = <3>; /* AGC default */
 
 				/*
 				 * Polling interval in milliseconds.
-				 * The RP2350B firmware waits this long between
-				 * NFC polling cycles when no tag is detected.
-				 * Range: 50–5000 ms.
+				 * Time between NFC polling cycles when no tag is detected.
+				 * Lower values = faster detection, higher power consumption.
+				 * Range: 50 to 5000 ms.
 				 */
 				apex,poll-interval-ms = <100>; /* 100 ms default */
 
 				/*
-				 * Field detection sensitivity.
-				 * 0 = Low sensitivity (strong fields only)
-				 * 1 = Medium sensitivity (default)
-				 * 2 = High sensitivity (weak fields)
-				 *
-				 * Higher sensitivity may cause false positives
-				 * from ambient RF noise.
+				 * Anti-collision collision detection level.
+				 * 0 = No collision detection (single tag only)
+				 * 1 = Standard collision detection
+				 * 2 = Aggressive collision detection (multi-tag)
 				 */
-				apex,sensitivity = <1>; /* Medium default */
+				apex,anti-coll-level = <1>; /* Standard default */
 
 				/*
-				 * Auto sleep when idle.
-				 * 0 = Disabled (continuous polling)
-				 * 1 = Enabled (sleep after poll-interval-ms × idle-count)
-				 *
-				 * When enabled, the ST25R3916 enters sleep mode after
-				 * the specified number of idle polling cycles. It wakes
-				 * automatically on the next polling interval.
+				 * Enable/disable NFC field auto-activation.
+				 * 0 = Field off by default (manual activation via ioctl)
+				 * 1 = Field auto-activate on poll (default for reader mode)
 				 */
-				apex,auto-sleep = <0>; /* Disabled for pentesting */
+				apex,auto-activate = <1>; /* Auto-activate default */
+
+				/*
+				 * Sleep mode between polls.
+				 * 0 = Stay active between polls (lowest latency)
+				 * 1 = Enter low-power sleep between polls (default)
+				 */
+				apex,sleep-between-polls = <1>; /* Sleep between polls */
+
+				/*
+				 * Maximum number of retries for a failed NFC transaction
+				 * before reporting an error. Range: 0-255.
+				 * 0 = No retries (fail immediately)
+				 * 3 = Default (reasonable for noisy environments)
+				 */
+				apex,max-retries = <3>;
+
+				/*
+				 * ST25R3916 interrupt mask for enabled IRQ sources.
+				 * Default enables: RX start, RX end, TX end, field change,
+				 * and WU (wake-up) interrupts. See ST25R3916 datasheet
+				 * register 0x03 (IRQ_MASK) for bit definitions.
+				 */
+				apex,irq-mask = <0x007F>; /* Default IRQ mask */
 			};
 		};
 	};
 
 	/*
-	 * Fragment 1: NFC field strength regulator
+	 * Fragment 1: ST25R3916 SPI2 device node
 	 *
-	 * Provides a GPIO-controlled regulator for the ST25R3916 NFC
-	 * TX power supply (5V). The vdd_nfc_tx regulator is defined in
-	 * the base DTS. This fragment adds an enable/disable control
-	 * for the NFC antenna matching network.
+	 * The ST25R3916 is connected to the RP2350B via SPI2 (dedicated bus)
+	 * with an additional I2C0 link for out-of-band interrupt signaling.
+	 * The RP2350B firmware manages the ST25R3916 directly, but this
+	 * overlay provides configuration parameters that the firmware reads
+	 * at initialization time.
+	 *
+	 * SPI2 pin assignments on RP2350B:
+	 *   GPIO4  = SPI2_TX  (MOSI to ST25R3916 SDI)
+	 *   GPIO5  = SPI2_RX  (MISO from ST25R3916 SDO)
+	 *   GPIO6  = SPI2_SCK (Clock)
+	 *   GPIO7  = SPI2_CSn (Chip select, active-low)
+	 *   GPIO44 = NFC_IRQ  (ST25R3916 IRQ, active-low edge)
 	 */
 	fragment@1 {
 		target-path = "/";
 
 		__overlay__ {
-			nfc_field: nfc-field {
-				compatible = "apex,nfc-field-control";
+			st25r3916: nfc-controller@0 {
+				compatible = "st,st25r3916";
+				reg = <0>; /* SPI chip select 0 */
+				spi-max-frequency = <10000000>; /* 10 MHz SPI2 */
 
 				/*
-				 * NFC TX field enable GPIO.
-				 * When the SPI_CMD_NFC_TRANSACT command sets up a
-				 * TX operation, the RP2350B drives this GPIO high
-				 * to enable the 13.56 MHz carrier via ST25R3916
-				 * TX_ON direct command.
+				 * ST25R3916 SPI protocol:
+				 *   Read:  (0x40 | addr) for Space A, (0x60 | addr) for Space B
+				 *   Write: (0x00 | addr) for Space A, (0x20 | addr) for Space B
+				 *   Direct command: (0xC0 | cmd)
+				 *
+				 * The RP2350B firmware handles SPI2 addressing internally.
+				 * This property is informational only.
 				 */
-				apex,field-enable-gpio = <&gpio1 10 GPIO_ACTIVE_HIGH>;
-				 /* GPIO1_B2 mapped to MCU GPIO33 (SDR_GPIO1) */
+				st,spi-mode = <0>; /* SPI Mode 0 (CPOL=0, CPHA=0) */
+
+				/*
+				 * ST25R3916 interrupt line.
+				 * The RP2350B receives this on GPIO44 (edge-sensitive, falling).
+				 * The firmware ISR reads ST25R3916 interrupt status registers
+				 * to determine the event type.
+				 */
+				interrupt-parent = <&gpio1>;
+				interrupts = <44 IRQ_TYPE_EDGE_FALLING>;
+
+				/*
+				 * Reference to the NFC configuration parameters from Fragment 0.
+				 * The RP2350B firmware reads this node at initialization.
+				 */
+				nfc-config = <&nfc_config>;
 			};
 		};
 	};
 
 	/*
-	 * Fragment 2: NFC IRQ notification configuration
+	 * Fragment 2: NFC field regulator
 	 *
-	 * The ST25R3916 asserts PIN_NFC_IRQ (GPIO44 on RP2350B) when
-	 * an NFC event occurs (tag detected, RX complete, error, etc.).
-	 * The RP2350B firmware handles this interrupt and forwards it
-	 * to the RK3576 via the SPI bridge protocol.
+	 * The ST25R3916 antenna driver requires a 5V supply for the TX
+	 * antenna (vdd_nfc_tx). This regulator is GPIO-controlled so the
+	 * firmware can disable it to save power when NFC is not in use.
 	 */
 	fragment@2 {
 		target-path = "/";
 
 		__overlay__ {
-			nfc_irq_config: nfc-irq-config {
-				compatible = "apex,nfc-irq-config";
-
+			nfc_field_vdd: nfc-field-regulator {
+				compatible = "regulator-fixed";
+				regulator-name = "nfc_field_vdd";
+				regulator-min-microvolt = <5000000>;
+				regulator-max-microvolt = <5000000>;
 				/*
-				 * IRQ mask: which ST25R3916 interrupt sources to enable.
-				 * Bit 0: OSC (oscillator ready)
-				 * Bit 1: FeliCa interrupt
-				 * Bit 2: NFC-A interrupt (tag detected)
-				 * Bit 3: NFC-B interrupt
-				 * Bit 4: NFC-F interrupt
-				 * Bit 5: NFC-V interrupt
-				 * Bit 6: TX ended
-				 * Bit 7: RX ended
-				 *
-				 * Default: enable tag detection (NFC-A) + RX ended
+				 * RP2350B GPIO22 controls the NFC 5V supply.
+				 * The firmware enables this before activating
+				 * the NFC field and disables it in sleep mode.
 				 */
-				apex,irq-mask1 = <0x84>; /* NFC-A + RXE */
-
-				/*
-				 * IRQ mask 2: wake-up and FIFO events.
-				 * Default: enable wake-up active + RX start
-				 */
-				apex,irq-mask2 = <0x14>; /* WU_A + RXS */
+				gpio = <&gpio1 22 GPIO_ACTIVE_HIGH>;
+				enable-active-high;
+				startup-delay-us = <5000>;  /* 5 ms for regulator ramp */
+				off-on-delay-us = <10000>;  /* 10 ms minimum off time */
+				vin-supply = <&vdd_nfc_tx>;
 			};
 		};
 	};

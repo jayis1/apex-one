@@ -154,7 +154,7 @@ extern void watchdog_kick(void);
  * Runtime-initialized to avoid wasting SRAM on a 2 KB table that
  * would be all zeros if left as a const array. */
 static uint64_t crc64_table[256];
-static int crc64_initialized = 0;
+static volatile int crc64_initialized = 0;
 
 static void crc64_init(void) {
     const uint64_t poly = 0x42F0E1EBA9EA3693ULL;
@@ -185,7 +185,7 @@ static uint64_t crc64_compute(const uint8_t *data, uint32_t len) {
 
 /* CRC-32 using polynomial 0xEDB88320 (ISO 3309) */
 static uint32_t crc32_table[256];
-static int crc32_initialized = 0;
+static volatile int crc32_initialized = 0;
 
 static void crc32_init(void) {
     const uint32_t poly = 0xEDB88320UL;

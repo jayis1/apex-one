@@ -35,7 +35,7 @@ static struct {
     uint32_t last_activity_ms;      /* Timestamp of last SPI RX activity */
     uint32_t last_process_ms;       /* Timestamp of last process call */
     uint32_t idle_count;            /* Number of idle cycles in current state */
-    bool     force_wake_pending;    /* Force wake flag (set from ISR) */
+    volatile bool force_wake_pending;    /* Force wake flag (set from ISR context) */
 } sw_state;
 
 /* ── External references ──────────────────────────────────────────────── */
@@ -172,8 +172,11 @@ enum sleep_state sleep_wake_process(void) {
     uint32_t idle_ms = now - sw_state.last_activity_ms;
     bool has_activity = check_spi_activity();
 
-    /* Check for forced wake (from ISR or host INT_REQ) */
+    /* Check for forced wake (from ISR or host INT_REQ).
+     * Use compiler barrier after reading volatile flag to prevent
+     * the compiler from caching the read across loop iterations. */
     if (sw_state.force_wake_pending) {
+        __asm__ volatile ("" ::: "memory");  /* Compiler barrier */
         sw_state.force_wake_pending = false;
 
         /* Transition to IDLE from any state */

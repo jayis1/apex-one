@@ -587,6 +587,8 @@ electrical level. All timing values are worst-case at 50 MHz SPI clock.
 - [Power Sequencing & Timing](power-sequencing-timing.md) — PMIC rail sequencing and timing constraints
 - [Reset Circuit Design](reset-circuit-design.md) — Hardware reset architecture and timing
 - [Pin Assignments](pin-assignments.md) — Cross-reference: schematic net → DTS GPIO → firmware pin
+- [GPIO Cross-Reference](gpio-cross-reference.md) — Detailed DTS ↔ firmware ↔ schematic net mapping
+- [Glossary](glossary.md) — Project-specific terms and abbreviations
 - [Memory Map](memory-map.md) — RK3576 and RP2350B memory maps
 - [Sysfs Attributes](sysfs-attributes.md) — Driver telemetry attributes and usage
 - [Flashing Guide](flashing-guide.md) — How to flash firmware and load drivers

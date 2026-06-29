@@ -143,7 +143,7 @@ struct telemetry_payload {
 
 /* CRC-64 using polynomial 0x42F0E1EBA9EA3693 (ECMA-182) */
 static uint64_t crc64_table[256];
-static int crc64_initialized = 0;
+static volatile int crc64_initialized = 0;
 
 static void crc64_init(void) {
     const uint64_t poly = 0x42F0E1EBA9EA3693ULL;
@@ -157,6 +157,7 @@ static void crc64_init(void) {
         }
         crc64_table[i] = crc;
     }
+    __asm__ volatile ("dmb" ::: "memory");  /* Ensure table visible before flag */
     crc64_initialized = 1;
 }
 
@@ -172,7 +173,7 @@ static uint64_t crc64_compute(const uint8_t *data, uint32_t len) {
 
 /* CRC-32 using polynomial 0xEDB88320 (ISO 3309) */
 static uint32_t crc32_table[256];
-static int crc32_initialized = 0;
+static volatile int crc32_initialized = 0;
 
 static void crc32_init(void) {
     const uint32_t poly = 0xEDB88320UL;
@@ -186,6 +187,7 @@ static void crc32_init(void) {
         }
         crc32_table[i] = crc;
     }
+    __asm__ volatile ("dmb" ::: "memory");  /* Ensure table visible before flag */
     crc32_initialized = 1;
 }
 
@@ -445,6 +447,10 @@ static int build_response_frame(uint8_t cmd, const uint8_t *payload,
      * Ensure TX ring data is visible before asserting the interrupt. */
     dmb();
     int_req_assert();
+
+    /* Securely wipe the frame buffer from the stack to prevent
+     * leakage of protocol framing data through stack residuals. */
+    secure_wipe(frame, sizeof(frame));
 
     return 0;
 }

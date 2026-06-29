@@ -496,6 +496,47 @@ display_backlight: backlight {
 };
 
 /* ================================================================
+ * UART1 — Bluetooth HCI (MT7922)
+ * Connected to MT7922 BT_UART interface at 3 Mbps
+ * ================================================================ */
+
+&uart1 {
+	status = "okay";
+	current-speed = <3000000>;
+	pinctrl-0 = <&uart1_pins>;
+	pinctrl-names = "default";
+
+	bluetooth: bluetooth {
+		compatible = "mediatek,mt7921-bt";
+		max-speed = <3000000>;
+		shutdown-gpios = <&gpio1 22 GPIO_ACTIVE_HIGH>;  /* GPIO1_D6: BT_REG_ON */
+		device-wakeup-gpios = <&gpio1 23 GPIO_ACTIVE_HIGH>; /* GPIO1_D7: BT_HOST_WAKE */
+	};
+};
+
+/* ================================================================
+ * I2C2 — Expansion Header (GPS, sensors)
+ * ================================================================ */
+
+&i2c2 {
+	status = "disabled"; /* Enable via ghostblade-options overlay */
+	clock-frequency = <100000>; /* 100 kHz Standard mode */
+	pinctrl-0 = <&i2c2_pins>;
+	pinctrl-names = "default";
+};
+
+/* ================================================================
+ * UART2 — GPS (u-blox NEO-M10N, optional)
+ * Enable via ghostblade-options overlay
+ * ================================================================ */
+
+&uart2 {
+	status = "disabled";
+	pinctrl-0 = <&uart2_pins>;
+	pinctrl-names = "default";
+};
+
+/* ================================================================
  * Pin Control
  * ================================================================ */
 
@@ -672,5 +713,46 @@ display_backlight: backlight {
 		function = "gpio";
 		drive-strength = <2>;
 		bias-pull-down;
+	};
+
+	/* UART1 — Bluetooth HCI (MT7922)
+	 * TX/RX + CTS/RTS hardware flow control
+	 */
+	uart1_pins: uart1-pins {
+		pins = "UART1_TX", "UART1_RX",
+		       "UART1_CTS", "UART1_RTS";
+		function = "uart1";
+		bias-pull-up;
+		drive-strength = <4>;
+	};
+
+	/* UART2 — GPS (u-blox NEO-M10N, optional)
+	 * Enable via ghostblade-options overlay
+	 */
+	uart2_pins: uart2-pins {
+		pins = "UART2_TX", "UART2_RX";
+		function = "uart2";
+		bias-pull-up;
+		drive-strength = <4>;
+	};
+
+	/* I2C2 — Expansion header for GPS, sensors
+	 * Enable via ghostblade-options overlay
+	 */
+	i2c2_pins: i2c2-pins {
+		pins = "I2C2_SDA", "I2C2_SCL";
+		function = "i2c2";
+		bias-pull-up;
+		drive-strength = <4>;
+	};
+
+	/* PCIe reference clock pins
+	 * Required for NVMe SSD and MT7922 Wi-Fi
+	 */
+	pcie_clk_pins: pcie-clk-pins {
+		pins = "PCIE_CLK_REQ_N"; /* PCIe clock request */
+		function = "pcie_clk";
+		bias-pull-up;
+		drive-strength = <2>;
 	};
 };

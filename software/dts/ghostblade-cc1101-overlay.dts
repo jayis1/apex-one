@@ -1,0 +1,200 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Device Tree Overlay — GhostBlade CC1101 Sub-GHz Radio Configuration
+ * Project NullSpectre
+ *
+ * This overlay configures the CC1101 sub-GHz radio peripheral parameters.
+ * The CC1101 is connected to the RP2350B via the shared SPI1 bus (along
+ * with the LMS7002M SDR). The RP2350B firmware manages SPI1 bus arbitration
+ * and CC1101 register configuration.
+ *
+ * Apply when CC1101 frequency plan, modulation, or power settings need
+ * to be changed without reflashing the base DTB or RP2350B firmware.
+ *
+ * Note: The CC1101 is controlled entirely through the RP2350B SPI bridge
+ * (via APEX_IOC_CC1101_CFG ioctl from userspace). This overlay provides
+ * default boot-time configuration that the RP2350B firmware reads during
+ * cc1101_init().
+ *
+ * Usage:
+ *   dtc -I dts -O dtb -@ -o ghostblade-cc1101-overlay.dtbo ghostblade-cc1101-overlay.dts
+ *   sudo mkdir -p /sys/kernel/config/device-tree/overlays/cc1101
+ *   sudo cp ghostblade-cc1101-overlay.dtbo /sys/kernel/config/device-tree/overlays/cc1101/dtbo
+ *
+ * To remove:
+ *   sudo rmdir /sys/kernel/config/device-tree/overlays/cc1101
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "ghostblade,nullspectre", "rockchip,rk3576";
+
+	/*
+	 * Fragment 0: CC1101 sub-GHz radio default configuration
+	 *
+	 * These parameters are read by the RP2350B firmware at boot
+	 * during cc1101_init() and applied to the CC1101 configuration
+	 * registers via SPI1.
+	 *
+	 * The CC1101 register map is programmed in the following order:
+	 *   IOCFG2, IOCFG1, IOCFG0, FIFOTHR, SYNC1, SYNC0, PKTLEN,
+	 *   PKTCTRL1, PKTCTRL0, ADDR, CHANNR, FSCTRL1, FSCTRL0,
+	 *   FREQ2, FREQ1, FREQ0, MDMCFG4, MDMCFG3, MDMCFG2, MDMCFG1,
+	 *   MDMCFG0, DEVIATN, MCSM2, MCSM1, MCSM0, FOCCFG, BSCFG,
+	 *   AGCCTRL2, AGCCTRL1, AGCCTRL0, WOREVT1, WOREVT0, WORCTRL,
+	 *   FREND1, FREND0, FSCAL3, FSCAL2, FSCAL1, FSCAL0, PA_TABLE0
+	 *
+	 * Refer to the CC1101 datasheet (SWRU068) for register details.
+	 */
+	fragment@0 {
+		target-path = "/";
+
+		__overlay__ {
+			cc1101_config: cc1101-config {
+				compatible = "apex,cc1101-config";
+
+				/*
+				 * CC1101 frequency band selection.
+				 * 0 = 433 MHz (EU/ASIA ISM, 433.05–434.79 MHz)
+				 * 1 = 868 MHz (EU SRD, 863–870 MHz)
+				 * 2 = 915 MHz (US/AU ISM, 902–928 MHz)
+				 */
+				apex,freq-band = <1>; /* 868 MHz default */
+
+				/*
+				 * Channel number (0–255).
+				 * Actual frequency = base_freq + channel × channel_spacing.
+				 * channel_spacing is configured via MDMCFG1.CHANSPC_E
+				 * and MDMCFG0.CHANSPC_M registers.
+				 */
+				apex,channel = <0>;
+
+				/*
+				 * Modulation format.
+				 * 0 = 2-FSK (best sensitivity, default)
+				 * 1 = GFSK (good sensitivity, narrower bandwidth)
+				 * 2 = ASK/OOK (simplest, but lower sensitivity)
+				 * 3 = 4-FSK (higher data rate, lower sensitivity)
+				 * 4 = MSK (minimum shift keying)
+				 */
+				apex,modulation = <1>; /* GFSK default */
+
+				/*
+				 * Data rate in Baud × 1000.
+				 * Common values:
+				 *   1200   = 1.2 kBaud (long range, low power)
+				 *   2400   = 2.4 kBaud
+				 *   4800   = 4.8 kBaud
+				 *   38400  = 38.4 kBaud (default, good balance)
+				 *   250000 = 250 kBaud (high throughput, short range)
+				 */
+				apex,data-rate = <38400>; /* 38.4 kBaud default */
+
+				/*
+				 * TX output power level (PATABLE index).
+				 * 0 = -30 dBm (minimum)
+				 * 1 = -20 dBm
+				 * 2 = -15 dBm
+				 * 3 = -10 dBm
+				 * 4 = 0 dBm (default, moderate)
+				 * 5 = +5 dBm
+				 * 6 = +7 dBm
+				 * 7 = +10 dBm (maximum)
+				 */
+				apex,tx-power = <4>; /* 0 dBm default */
+
+				/*
+				 * Sync word for packet filtering.
+				 * 16-bit sync word: 0xD321 (default)
+				 * Set to 0x0000 to disable sync word check (promiscuous mode).
+				 */
+				apex,sync-word = <0xD321>;
+
+				/*
+				 * Packet length mode.
+				 * 0 = Fixed length (PKTLEN register)
+				 * 1 = Variable length (first byte after sync word)
+				 * 2 = Infinite (for streaming / raw capture)
+				 */
+				apex,pkt-length-mode = <1>; /* Variable length default */
+
+				/*
+				 * Address filtering.
+				 * 0 = No address check
+				 * 1 = Address check, no broadcast
+				 * 2 = Address check and broadcast (0x00/0xFF)
+				 */
+				apex,addr-filter = <0>; /* No address filter default */
+
+				/*
+				 * CRC enable for TX/RX packets.
+				 * 0 = CRC disabled
+				 * 1 = CRC enabled (default, recommended for reliability)
+				 */
+				apex,crc-enable = <1>;
+
+				/*
+				 * Manchester encoding enable.
+				 * 0 = Disabled (default)
+				 * 1 = Enabled (reduces effective data rate by 50%)
+				 */
+				apex,manchester-enable = <0>;
+			};
+		};
+	};
+
+	/*
+	 * Fragment 1: CC1101 GDO interrupt configuration
+	 *
+	 * The CC1101 has two GPIO outputs (GDO0, GDO2) that can signal
+	 * events to the RP2350B. These are mapped to RP2350B GPIO pins:
+	 *   GDO0 → GPIO13 (CC1101 GDO0)
+	 *   GDO2 → GPIO14 (CC1101 GDO2)
+	 *
+	 * Default GDO pin configuration (CC1101 IOCFGx registers):
+	 *   GDO0 = 0x06 (sync word detected / packet received)
+	 *   GDO2 = 0x0B (packet transmitted / FIFO threshold)
+	 */
+	fragment@1 {
+		target-path = "/";
+
+		__overlay__ {
+			cc1101_irq_config: cc1101-irq-config {
+				compatible = "apex,cc1101-irq-config";
+
+				/*
+				 * GDO0 pin function (IOCFG0 register value).
+				 * Common values:
+				 *   0x06 = Sync word received / sent
+				 *   0x07 = CRC OK / packet received
+				 *   0x03 = TX FIFO threshold
+				 *   0x01 = RX FIFO threshold
+				 */
+				apex,gdo0-function = <0x06>;
+
+				/*
+				 * GDO2 pin function (IOCFG2 register value).
+				 * Common values:
+				 *   0x0B = TX FIFO threshold
+				 *   0x01 = RX FIFO threshold
+				 *   0x06 = Sync word received / sent
+				 *   0x2E = CRC OK (packet mode only)
+				 */
+				apex,gdo2-function = <0x0B>;
+
+				/*
+				 * CC1101 SPI1 bus speed in Hz.
+				 * The CC1101 supports up to 10 MHz SPI clock.
+				 * The RP2350B shares SPI1 with the LMS7002M;
+				 * bus arbitration is handled in firmware.
+				 */
+				apex,spi-speed-hz = <10000000>; /* 10 MHz */
+			};
+		};
+	};
+};

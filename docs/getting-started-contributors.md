@@ -243,15 +243,31 @@ The `apex_bridge` driver exposes telemetry via sysfs:
 
 ```
 /sys/class/apex/apex_bridge0/
-├── rssi          # Current SDR RSSI (dBm)
-├── temperature   # MCU temperature (°C × 1000)
-├── battery_voltage  # Battery voltage (mV)
-├── uptime        # MCU uptime (seconds)
-├── firmware_version # MCU firmware version string
-└── sdr_stats     # SDR DMA statistics
+├── rssi_dbm_x10          # SDR RSSI (dBm × 10)
+├── temp_c_x10             # MCU temperature (°C × 10)
+├── vbat_mv                # Battery voltage (mV)
+├── cc1101_rssi_x10        # CC1101 sub-GHz RSSI (dBm × 10)
+├── nfc_field_mv           # NFC field strength (mV)
+├── mcu_flags              # MCU status flags (hex)
+├── uptime_ms              # MCU uptime (ms)
+├── driver_status          # Driver status flags (hex)
+├── spi_errors             # Cumulative SPI error count
+├── rx_fifo_count          # RX FIFO bytes pending
+├── tx_fifo_count          # TX FIFO bytes pending
+├── brownout_count         # Cumulative brownout events
+├── low_battery            # Low battery flag (0/1)
+├── sg_state               # SG DMA engine state (idle/running/error)
+├── sg_total_bytes         # SG total bytes transferred
+├── sg_overruns            # SG buffer overrun count
+├── sg_errors              # SG transfer error count
+├── sg_frames_rx           # SG frames received
+├── sg_buf_count           # SG buffer count
+└── sg_buf_size            # SG buffer size (bytes)
 ```
 
-To add a new attribute, add a `DEVICE_ATTR_RO()` or `DEVICE_ATTR_RW()` definition in `apex_bridge.c` and update the attribute group.
+To add a new attribute, add a `DEVICE_ATTR_RO()` or `DEVICE_ATTR_RW()` definition in `apex_bridge.c` and update the attribute group array `apex_bridge_attrs[]`.
+
+See [`docs/sysfs-attributes.md`](sysfs-attributes.md) for complete documentation of all attributes.
 
 ### Debugging SPI Communication
 

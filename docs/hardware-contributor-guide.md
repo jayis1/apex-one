@@ -133,6 +133,7 @@ Before opening a PR, verify:
 - [ ] DRC passes with zero violations
 - [ ] Netlist is regenerated after schematic changes
 - [ ] DTS GPIO numbers match schematic net names (see netlist cross-reference in `software/dts/ghostblade-rk3576.dts`)
+- [ ] RP2350B pin assignments in `board_pins.h` match schematic net names (see [GPIO Cross-Reference](../docs/gpio-cross-reference.md))
 - [ ] New components have symbols, footprints, and 3D model references
 - [ ] Power domain changes are reflected in `docs/power-tree.md`
 - [ ] BOM is updated with new parts

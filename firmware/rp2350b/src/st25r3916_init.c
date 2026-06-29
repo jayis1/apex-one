@@ -321,6 +321,9 @@ int st25r3916_init(void) {
     return 0;
 }
 
+/** Maximum ST25R3916 FIFO depth (bytes) */
+#define ST25R3916_FIFO_SIZE_VAL 512
+
 /* ========================================================================
  * ST25R3916 ISO 14443A Operations
  * ======================================================================== */
@@ -508,11 +511,11 @@ int st25r3916_transact(uint8_t cmd,
     uint32_t timeout_count;
 
     /* ST25R3916 FIFO depth is 512 bytes */
-#define ST25R3916_FIFO_SIZE_VAL 512
 
-    /* Parameter validation */
+    /* Parameter validation: tx_data must accompany tx_len, rx_data must accompany rx_len */
     if ((tx_len > 0 && tx_data == NULL) ||
-        (rx_len != NULL && *rx_len > 0 && rx_data == NULL)) {
+        (rx_len != NULL && *rx_len > 0 && rx_data == NULL) ||
+        (rx_data != NULL && rx_len == NULL)) {
         return -3;
     }
 
